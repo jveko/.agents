@@ -3,14 +3,17 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-Task tool (general-purpose):
+Subagent (general-purpose):
   description: "Implement Task N: [task name]"
+  model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
+         model silently inherits the session's most expensive one]
   prompt: |
     You are implementing Task N: [task name]
 
     ## Task Description
 
-    [FULL TEXT of task from plan - paste it here, don't make subagent read file]
+    Read your task brief first: [BRIEF_FILE]
+    It contains the full task text from the plan.
 
     ## Context
 
@@ -35,12 +38,53 @@ Task tool (general-purpose):
     4. Self-review (see below)
     5. Report back
 
-    **Do NOT commit.** The controller commits after all reviews pass.
+    **Do NOT commit.** The controller commits after all reviews pass. Leave
+    every change in the working tree and report the exact file paths you
+    created or modified — the controller stages only those paths.
 
     Work from: [directory]
 
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
     It's always OK to pause and clarify. Don't guess or make assumptions.
+
+    While iterating, run the focused test for what you're changing; run the
+    full suite once before reporting, not after every edit.
+
+    ## Other Tasks May Be Running Beside You
+
+    You may be sharing this working tree with implementers working on other
+    tasks at the same time. Your batch is only independent if you keep it
+    that way:
+    - Touch only the files your brief names. If a file you need is not in
+      your brief, ask — do not edit it on your own.
+    - Do not run repo-wide formatters, codemods, dependency installs,
+      lockfile updates, or snapshot/generator refreshes. They rewrite files
+      that belong to another task.
+    - If you see files you did not create changing, that is another
+      implementer working. Ignore them; do not revert, "fix", or stage
+      them.
+
+    ## You Do Not Dispatch Subagents
+
+    Do all of this task's work yourself. Never spawn a subagent to
+    implement part of the task, and above all never spawn a reviewer to
+    check your work. Self-review (below) means reading your own diff.
+    Review is the controller's job: after you report, it dispatches a
+    fresh reviewer against your diff. A reviewer you spawn duplicates
+    that review at full cost, and its approval counts for nothing in
+    the process. If you catch yourself thinking "an independent review
+    would strengthen my report" — that review is already scheduled.
+    Report instead.
+
+    ## You Do Not Commit
+
+    Never run `git commit`, `git add`, `git stash`, `git checkout -- <file>`,
+    or any other command that stages, reverts, or rewrites working-tree
+    state. The controller owns every commit: it stages exactly the paths
+    your report names. A commit from you can sweep another task's in-flight
+    work into history or make the controller's per-task review package
+    unreproducible. If you believe something must be committed for your work
+    to be reviewable, say so in your report — do not do it yourself.
 
     ## Code Organization
 
@@ -95,18 +139,46 @@ Task tool (general-purpose):
     - Do tests actually verify behavior (not just mock behavior)?
     - Did I follow TDD if required?
     - Are tests comprehensive?
+    - Is the test output pristine (no stray warnings or noise)?
 
     If you find issues during self-review, fix them now before reporting.
 
+    ## After Review Findings
+
+    If the task review finds issues, you will be resumed with the findings.
+    Fix them, re-run the tests that cover the amended code, and append a fix
+    report to your report file: what you changed, the covering tests you
+    ran, the command, and the output. Reviewers will not re-run tests for
+    you — your report is the test evidence. Then reply with the same short
+    status contract as your first report.
+
+    In a fix round, list the files you touched in THIS round separately from
+    the originals, so the controller can commit only the fix.
+
     ## Report Format
 
-    When done, report:
-    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    Write your full report to [REPORT_FILE]:
     - What you implemented (or what you attempted, if blocked)
     - What you tested and test results
-    - Files created/modified (exact paths)
+    - **TDD Evidence** (if TDD was required for this task):
+      - RED: command run, relevant failing output before implementation, and why the failure was expected
+      - GREEN: command run and relevant passing output after implementation
+    - **Files created/modified — exact paths, one per line** (the
+      controller stages exactly this list; a vague "src/" or a
+      "Files changed" summary is not usable)
     - Self-review findings (if any)
     - Any issues or concerns
+
+    Then report back with ONLY (under 15 lines — the detail lives in the
+    report file):
+    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    - Files created/modified (exact paths — same list as the report file)
+    - One-line test summary (e.g. "14/14 passing, output pristine")
+    - Your concerns, if any
+    - The report file path
+
+    If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
+    itself — the controller acts on it directly.
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need

@@ -20,8 +20,8 @@ Your local skills at `~/.agents/skills/` are based on the [superpowers](https://
 
 **Directory layout:**
 ```
-~/.agents/skills/                  ← Your active local skills
-~/workspace/skills/superpowers/    ← Upstream cloned here
+~/.agents/skills/                     ← Your active local skills
+~/workspace/projects/superpowers/     ← Upstream cloned here
   skills/
     brainstorming/
     consolidating-skills/          ← This skill
@@ -33,14 +33,14 @@ Your local skills at `~/.agents/skills/` are based on the [superpowers](https://
 ### 1. Pull Latest Upstream
 
 ```bash
-cd ~/workspace/skills/superpowers && git pull
+cd ~/workspace/projects/superpowers && git pull
 ```
 
 ### 2. Find What Changed
 
 ```bash
 SKILLS_DIR="$HOME/.agents/skills"
-UPSTREAM_DIR="$HOME/workspace/skills/superpowers/skills"
+UPSTREAM_DIR="$HOME/workspace/projects/superpowers/skills"
 
 echo "=== SKILL.md files that differ ==="
 for skill in brainstorming dispatching-parallel-agents \
@@ -71,8 +71,11 @@ cp "$UPSTREAM_DIR/writing-plans/SKILL.md" "$SKILLS_DIR/writing-plans/SKILL.md"
 
 ```bash
 cp "$UPSTREAM_DIR/brainstorming/visual-companion.md" "$SKILLS_DIR/brainstorming/"
-cp "$UPSTREAM_DIR/writing-plans/plan-document-reviewer-prompt.md" "$SKILLS_DIR/writing-plans/"
 ```
+
+Note: `writing-plans/plan-document-reviewer-prompt.md` was deleted upstream in v6.4.2;
+the local copy is kept because the local Oracle Review workflow references it.
+Do not treat it as a dead file.
 
 ### 5. Verify
 
@@ -101,20 +104,20 @@ done
 
 ## New Skills Only in Upstream
 
-| Skill | Description |
-|---|---|
-| executing-plans | Parallel session execution |
-| receiving-code-review | |
-| requesting-code-review | |
-| test-driven-development | Foundational TDD |
-| using-superpowers | |
-| verification-before-completion | |
+Adopted 2026-09-28 (v6.4.2 pull): `diagnosing-superpowers`, `executing-plans`,
+`test-driven-development`, `verification-before-completion`, `requesting-code-review`,
+`receiving-code-review`.
+
+Reviewed and declined: `using-git-worktrees`, `using-superpowers` (low value here —
+these skills run directly from `~/.agents/skills/`, no bootstrap needed).
+Their references in `executing-plans` and `subagent-driven-development` were
+neutralized on 2026-09-28 — re-neutralize after overwriting those files.
 
 ## Local Customizations to Preserve
 
-- **writing-plans**: `docs/plans/` paths, `dispatching-parallel-agents` references, Oracle review workflow, plan document chunking
-- **subagent-driven-development**: Integration section uses `dispatching-parallel-agents` not `superpowers:executing-plans`
-- **writing-skills**: Frontmatter `name`/`description` fields
+- **writing-plans**: `docs/plans/` paths, `dispatching-parallel-agents` references, Oracle review workflow, plan document chunking, Workflow Order section, `## Remember` bullets, checkbox Self-Review before Oracle review, Inline Execution handoff (no executing-plans), Task Structure ending at Step 4 (no Commit step), local `plan-document-reviewer-prompt.md`
+- **subagent-driven-development**: parallel-batch model (max 3, independence revalidation, dual-verdict gate where both verdicts must pass, controller-owned commits) layered on the upstream ledger/workspace rewrite; Integration section uses `dispatching-parallel-agents` not `superpowers:executing-plans`
+- **writing-skills**: Frontmatter `name`/`description` fields, Overview line naming `~/.claude/skills` and `~/.agents/skills/`, interpreter-invocation rule for bundled scripts
 
 ## Common Mistakes
 
@@ -125,5 +128,12 @@ done
 **Skipping verification:** After merging, re-run the diff loop to confirm only intentionally divergent files remain.
 
 ## Prior Consolidation
+
+2026-09-28 (v6.4.2 pull, d884ae0 → 8ca22db): overwrote brainstorming,
+dispatching-parallel-agents, systematic-debugging, finishing-a-development-branch
+(no local divergences worth keeping); full-replaced writing-plans and writing-skills
+then re-applied customizations; ported the parallel-batch model onto upstream's
+rewritten subagent-driven-development (local spec/quality reviewer prompts superseded
+by upstream task-reviewer-prompt.md); adopted 6 upstream-only skills (see above).
 
 Initial sync performed on 2026-05-02. Merged: Model Selection, Implementer Status, Code Organization, escalation guidance, self-review, checkbox syntax, plan reviewer prompt. Preserved: local paths, oracle workflow, chunking, `dispatching-parallel-agents` references. Copied: visual-companion, spec-document-reviewer, plan-document-reviewer, CREATION-LOG, brainstorming scripts.
