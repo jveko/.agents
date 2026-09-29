@@ -25,7 +25,7 @@ You are the **supervisor** over many lane agents: each lane is a **lane orchestr
 |---|---|
 | 0. Gate | `test "${HERDR_ENV:-}" = 1` before ANY herdr control call |
 | 1. Create + warm | `wt switch --create <branch> --no-cd` — post-start hooks (copy-ignored, npm ci, artifact symlinks, dist stub) run in background; `--no-cd` keeps your pane's cwd put |
-| 2. Nested workspace | `herdr worktree open --workspace "$HERDR_WORKSPACE_ID" --path <wt-path> --label <branch> --no-focus` → JSON with real ids (`wX:p1`) |
+| 2. Nested workspace | `herdr worktree open --cwd <repo-root> --branch <branch> --label <branch> --no-focus` → JSON with real ids (`wX:p1`). Prefer `--cwd`+`--branch`: `--path` requires the canonical path — herdr resolves `/tmp` → `/private/tmp`, anything else fails `worktree_not_found` |
 | 3. Spawn lane (bare) | `herdr agent start <name> --kind <omp\|claude\|codex> --pane wX:p1` — **no args after `--`, ever** |
 | 4. Deliver brief | Write the brief to a file first (structure: **brief-skeleton.md** in this directory); then `herdr agent prompt <name> "FIRST read /tmp/<brief>.txt in full - it is your mission brief. Then execute it."` |
 | 5. Supervise | Background `bash scripts/watch-lanes`; it exits printing named lanes that are blocked/idle/done → `herdr agent read <id>` → answer via `herdr pane send-text <pane_id> "<answer>"` + `herdr pane send-keys <pane_id> enter` (NOT `agent prompt` — see below) → verify `agent get` flipped → re-arm |
