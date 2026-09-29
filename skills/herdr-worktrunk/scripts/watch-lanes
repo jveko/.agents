@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Watch herdr lanes across all workspaces; print the lanes that need the
+# supervisor and exit. Usage:
+#   bash scripts/watch-lanes          # poll until any lane hits a trigger state
+#   bash scripts/watch-lanes --list   # one-shot: all lanes + statuses, no wait
+#
+# Trigger states: blocked (approval/question dialog), idle, done
+# (idle/done both mean ready for input). working and unknown never trigger —
+# unknown covers detached/sleeping agents and would fire constantly.
+# Output, one line per triggering lane: <lane-id><TAB><pane-id><TAB><status>
+#   <lane-id> is the agent name when the lane was started with one,
+#   otherwise the pane id (both are accepted by every herdr agent command).
+# Env: WATCH_INTERVAL_S — poll interval, default 20.
+
+set -u
+
+if [[ "${HERDR_ENV:-}" != "1" ]]; then
+  echo 'watch-lanes: not inside Herdr (HERDR_ENV != 1); refusing to run' >&2
+  exit 2
+fi
+
+INTERVAL="${WATCH_INTERVAL_S:-20}"
+
+snapshot() {
+  herdr agent list 2>/dev/null | jq -r \
+    '.result.agents[] | [(.name // .pane_id), .pane_id, .agent_status] | @tsv'
+}
+
+if [[ "${1:-}" == "--list" ]]; then
+  snapshot
+  exit 0
+fi
+
+while :; do
+  hit=$(herdr agent list 2>/dev/null | jq -r \
+    '.result.agents[] | select(.agent_status == "blocked" or .agent_status == "idle" or .agent_status == "done")
+     | [(.name // .pane_id), .pane_id, .agent_status] | @tsv')
+  if [[ -n "$hit" ]]; then
+    printf '%s\n' "$hit"
+    exit 0
+  fi
+  sleep "$INTERVAL"
+done

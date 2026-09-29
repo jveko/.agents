@@ -28,7 +28,7 @@ You are the **supervisor** over many lane agents: each lane is a **lane orchestr
 | 2. Nested workspace | `herdr worktree open --workspace "$HERDR_WORKSPACE_ID" --path <wt-path> --label <branch> --no-focus` → JSON with real ids (`wX:p1`) |
 | 3. Spawn lane (bare) | `herdr agent start <name> --kind <omp\|claude\|codex> --pane wX:p1` — **no args after `--`, ever** |
 | 4. Deliver brief | Write the brief to a file first (structure: **brief-skeleton.md** in this directory); then `herdr agent prompt <name> "FIRST read /tmp/<brief>.txt in full - it is your mission brief. Then execute it."` |
-| 5. Supervise | Poll `herdr agent list \| jq` for `agent_status=="blocked"` → `herdr agent read <name>` → answer via `herdr pane send-text <pane_id> "<answer>"` + `herdr pane send-keys <pane_id> enter` (NOT `agent prompt` — see below) → re-arm |
+| 5. Supervise | Background `bash scripts/watch-lanes`; it exits printing lanes that are blocked/idle/done → `herdr agent read <id>` → answer via `herdr pane send-text <pane_id> "<answer>"` + `herdr pane send-keys <pane_id> enter` (NOT `agent prompt` — see below) → verify `agent get` flipped → re-arm |
 | 6. Land | Supervisor only: `wt -C <wt-path> merge --no-squash --no-remove` — merges the CURRENT branch into TARGET (defaults to main; no branch selector). Both flags are load-bearing, see Landing below. Lanes NEVER merge or push |
 
 ## Common mistakes (observed failures)
@@ -63,12 +63,10 @@ Briefs are self-contained (scope, file:line evidence, pipeline) and stored OUTSI
 ## Supervision loop
 
 ```bash
-while :; do
-  blocked=$(herdr agent list | jq -r \
-    '.result.agents[] | select((.name // "") != "") | select(.agent_status=="blocked") | .name')
-  [ -n "$blocked" ] && { echo "BLOCKED: $blocked"; break; }
-  sleep 20
-done
+bash scripts/watch-lanes        # background job: exits printing the lanes that need you
+bash scripts/watch-lanes --list # snapshot: every lane + status, no wait
 ```
 
-Run it as a backgrounded job; on wake: `herdr agent read <name>` the question, answer it as in step 5 (SELECT dialog → `pane send-keys <pane_id> enter` alone on the highlighted option; free-text → `pane send-text` + `enter`; `agent prompt` only works on a lane in a normal idle/done turn), then **verify `agent get` flipped `blocked → working`** before re-arming. A still-blocked lane means the answer did not land — re-read, diagnose the dialog type, never re-send blindly. `blocked` means the lane raised a question or approval dialog — that is the supervision channel.
+The watcher polls every `WATCH_INTERVAL_S` (default 20s) across ALL workspaces and exits on the first lane that is `blocked` (approval/question dialog), `idle`, or `done` (`idle`/`done` both mean ready for input); `working` and `unknown` never fire — `unknown` covers detached/sleeping agents. Output is one tab-separated line per triggering lane: `id`, `pane_id`, `status` — `id` is the agent name when the lane has one, otherwise the pane id; either works as the target of any `herdr agent` command. No lane ids go in: the script discovers every lane in the session itself.
+
+Run it as a backgrounded job; on wake: `herdr agent read <printed id>` the question, answer it as in step 5 (SELECT dialog → `pane send-keys <pane_id> enter` alone on the highlighted option; free-text → `pane send-text` + `enter`; `agent prompt` only works on a lane in a normal idle/done turn), then **verify `agent get` flipped `blocked → working`** before re-arming (restart the watcher). A still-blocked lane means the answer did not land — re-read, diagnose the dialog type, never re-send blindly. `blocked` means the lane raised a question or approval dialog — that is the supervision channel.
