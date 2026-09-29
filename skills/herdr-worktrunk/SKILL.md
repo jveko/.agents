@@ -1,15 +1,23 @@
 ---
 name: herdr-worktrunk
-description: Use when spawning or supervising coding-agent lanes that live in git worktrees - creating Worktrunk (wt) worktrees from Herdr, opening nested worktree workspaces, starting omp/codex/claude agents into worktree panes, delivering a long mission brief to a pane, writing a lane brief or mission prompt skeleton, answering a lane that went blocked, landing merged lane branches (wt merge removes the worktree), resolving a lane rebase conflict, tearing down lane workspaces/worktrees, or when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
+description: Use when orchestrating git-worktree coding lanes in Herdr: opening a nested worktree workspace, spawning an omp/codex/claude lane, delivering a mission brief, answering a blocked lane (question or approval dialog), landing with wt merge, resolving a lane rebase conflict, tearing down lane workspaces - also when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
 ---
 
 # Herdr + Worktrunk
 
 ## Overview
 
-Worktrunk (`wt`) is the **single worktree engine** — create, warm, merge, remove. Herdr owns **panes, nested workspaces, and agent lifecycle**. Herdr's built-in worktree action stays deliberately unbound (the worktrunk plugin owns its keys): never create worktrees *through* Herdr, because that path skips `wt` post-start warm hooks and yields cold trees that panic in `build.rs`.
+**Core principle:** Worktrunk (`wt`) is the **single worktree engine** — create, warm, merge, remove. Herdr owns **panes, nested workspaces, and agent lifecycle** — never a worktree.
+
+Never create worktrees *through* Herdr: its built-in worktree action stays deliberately unbound (the worktrunk plugin owns its keys), and that path skips `wt` post-start warm hooks, yielding cold trees that panic in `build.rs`.
 
 **REQUIRED:** `herdr` skill (env gate, ids-from-JSON discipline) · `worktrunk` skill (hooks, approvals, `-C` rules).
+
+## When to Use
+
+You are the **supervisor** over many lane agents: each lane is a **lane orchestrator** running its own brief in a `wt` worktree (structure: brief-skeleton.md in this directory), and you create and warm the trees, open nested Herdr workspaces, spawn lanes, deliver briefs, answer blocked lanes, land merged branches, resolve lane rebase conflicts, and tear everything down.
+
+**Not for:** creating worktrees through Herdr (that is `wt`-only — the Herdr path yields cold trees); headless one-shot runs (`-p/--print` has no lifecycle to supervise); solo work that needs no lane.
 
 ## Quick reference
 
@@ -21,7 +29,7 @@ Worktrunk (`wt`) is the **single worktree engine** — create, warm, merge, remo
 | 3. Spawn lane (bare) | `herdr agent start <name> --kind <omp\|claude\|codex> --pane wX:p1` — **no args after `--`, ever** |
 | 4. Deliver brief | Write the brief to a file first (structure: **brief-skeleton.md** in this directory); then `herdr agent prompt <name> "FIRST read /tmp/<brief>.txt in full - it is your mission brief. Then execute it."` |
 | 5. Supervise | Poll `herdr agent list \| jq` for `agent_status=="blocked"` → `herdr agent read <name>` → answer via `herdr pane send-text <pane_id> "<answer>"` + `herdr pane send-keys <pane_id> enter` (NOT `agent prompt` — see below) → re-arm |
-| 6. Land | Orchestrator only: `wt -C <wt-path> merge --no-squash --no-remove` — merges the CURRENT branch into TARGET (defaults to main; no branch selector). Both flags are load-bearing, see Landing below. Lanes NEVER merge or push |
+| 6. Land | Supervisor only: `wt -C <wt-path> merge --no-squash --no-remove` — merges the CURRENT branch into TARGET (defaults to main; no branch selector). Both flags are load-bearing, see Landing below. Lanes NEVER merge or push |
 
 ## Common mistakes (observed failures)
 
@@ -38,13 +46,13 @@ Worktrunk (`wt`) is the **single worktree engine** — create, warm, merge, remo
 | Approve hook commands yourself | approvals are a user trust decision | user runs `wt config approvals add`; never pass `--yes` for them |
 | Rely on the UI-focused pane | focus belongs to the user or another client | explicit `--pane <id>` / `--current`; `--no-focus` for background lanes |
 
-## Landing, conflicts, teardown (observed end-to-end 2026-09-25)
+## Landing, conflicts, teardown
 
 **Land:** `wt -C <lane-path> merge --no-squash --no-remove` — pipeline = commit → (squash skipped) → **rebase onto target** → hooks → fast-forward target → cleanup (suppressed by `--no-remove`). Disjoint lanes rebase clean; the branch's own pre-merge gates already ran per-lane.
 
 **Conflicts:** the rebase stops OPEN in the lane worktree. Resolve with the harness conflict device: `read` the conflicted file (registers `conflict://N`) → `write { path: "conflict://N", content: "@theirs"|"@ours"|<composed union> }` — pick a side for competing edits, compose the union when both intents apply (e.g. two lanes appended different clauses to one paragraph) → `git add <file>` → `GIT_EDITOR=true git rebase --continue`. A commit made obsolete by an already-merged lane → `git rebase --skip`.
 
-**After the batch:** lanes' individual gates do NOT cover the combined tree. Run the repo's full gate on final main (here: `just build-ebpf` → `just ci` → `just test`). Live catches: lanes that never ran fmt shipped violations (fixed via `just fmt` + commit), and a stale primary `web/node_modules` failed `web-check` with `tsr: command not found` → `npm --prefix web ci`.
+**After the batch:** lanes' individual gates do NOT cover the combined tree. Run the repo's full gate on final main (e.g. `just build-ebpf` → `just ci` → `just test`). Expect two recurring misses: a lane that never ran the formatter ships fmt violations (run the repo's fmt + commit), and a stale primary `node_modules` fails the web check (`tsr: command not found` → `npm --prefix web ci`).
 
 **Teardown:** `herdr workspace close <id>` per lane workspace (NEVER `--group` — it cascades to the primary) kills the lane processes/panes; then `wt remove <branch>` per worktree — the integrated-ancestor check auto-allows fully-merged branches (no `-D`), removal runs in the BACKGROUND (use `--foreground` to await), and `wt list` can race it: verify disk with `ls .worktrees/`. `--reap` kills detached processes holding the tree (TTY/interactive processes are spared); `-f` dirty, `-D` unmerged.
 
