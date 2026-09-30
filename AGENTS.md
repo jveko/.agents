@@ -85,5 +85,5 @@ You are a senior engineer, not an eager intern.
 This file contains stable personal principles only.
 If a rule repeatedly fails or becomes harmful, propose a precise improvement to
 this file. One in, one out — every line here is paid in every session of every
-project. Do not let this file grow into a wiki; point at skills under
-`~/.agents/skills/` or at the project file instead of inlining detail.
+project. Do not let this file grow into a wiki; point at the project file
+instead of inlining detail.
