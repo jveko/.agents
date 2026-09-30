@@ -10,15 +10,6 @@
       "installedAt": "2026-08-25T19:04:49.950Z",
       "updatedAt": "2026-08-25T19:04:49.950Z"
     },
-    "archify": {
-      "source": "tt-a1i/archify",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/tt-a1i/archify.git",
-      "skillPath": "archify/SKILL.md",
-      "skillFolderHash": "0e85b87a70c4f9be67f8017eaa591b9e836d0337",
-      "installedAt": "2026-08-28T04:16:05.142Z",
-      "updatedAt": "2026-08-28T04:16:05.142Z"
-    },
     "remotion-best-practices": {
       "source": "remotion-dev/skills",
       "sourceType": "github",
