@@ -1,6 +1,6 @@
 ---
 name: herdr-worktrunk
-description: Use when orchestrating git-worktree coding lanes in Herdr: opening a nested worktree workspace, spawning an omp/codex/claude lane, delivering a mission brief, answering a blocked lane (question or approval dialog), landing with wt merge, resolving a lane rebase conflict, tearing down lane workspaces - also when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
+description: Use when orchestrating git-worktree coding lanes in Herdr: opening a nested worktree workspace, spawning an omp/codex/claude lane, delivering a mission brief, answering a blocked lane (question or approval dialog), landing with wt merge, resolving a lane rebase conflict, tearing down lane workspaces - also for the same lane flow when lanes run inside Docker sandboxes over ssh (sbx-lane), and when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
 ---
 
 # Herdr + Worktrunk
@@ -30,6 +30,19 @@ You are the **supervisor** over many lane agents: each lane is a **lane orchestr
 | 4. Deliver brief | Write the brief to a file first (structure: **brief-skeleton.md** in this directory); then `herdr agent prompt <name> "FIRST read /tmp/<brief>.txt in full - it is your mission brief. Then execute it."` |
 | 5. Supervise | Background `bash scripts/watch-lanes`; it exits printing named lanes that are blocked/idle/done → `herdr agent read <id>` → answer via `herdr pane send-text <pane_id> "<answer>"` + `herdr pane send-keys <pane_id> enter` (NOT `agent prompt` — see below) → verify `agent get` flipped → re-arm |
 | 6. Land | Supervisor only: `wt -C <wt-path> merge --no-squash --no-remove` — merges the CURRENT branch into TARGET (defaults to main; no branch selector). Both flags are load-bearing, see Landing below. Lanes NEVER merge or push |
+
+## Remote lanes (lane sandboxes)
+
+When the lane runs **inside a Docker sandbox** — worktrunk-sbx's post-start `sbx-up` hook already provisioned it (agent config booted, headless herdr server running, ssh alias whose certificate re-mints itself) — steps 2–6 change shape; drive them through `sbx-lane` (`bun <worktrunk-sbx>/scripts/sbx-lane.ts …`):
+
+| Step | Remote command |
+|---|---|
+| 2. Workspace | none — the hook did it; the branch carries `sbx-sandbox-id`/`sbx-ssh-host` |
+| 3+4. Spawn + brief | `sbx-lane spawn <branch> <lane> --brief /tmp/<brief>.txt [--kind omp]` — uploads the brief, creates workspace+pane, starts the agent, submits the pointer, and confirms pickup by polling; a typed-but-unsubmitted brief gets **Enter alone** (never the text retyped) |
+| 5. Supervise | `sbx-lane watch [--all\|--list]` — polls local herdr AND every sandbox of this repo; rows are `id pane status branch`. Read/answer via `sbx-lane herdr <branch> -- agent read <id>` then `… herdr <branch> -- pane send-text <pane> "<answer>"` + `… pane send-keys <pane> enter`; verify `blocked → working` |
+| 6. Land | `sbx-lane fetch <branch>` first: ff-only fast-forward of the local worktree to the lane's commits (divergence is refused, never merged over) — then the normal `wt -C <path> merge --no-squash --no-remove`; `sbx-lane prune` sweeps aliases/certificates of sandboxes that died without teardown |
+
+Remote answers follow the SAME recovery table below. The observed stall in this mode: the pane shows the brief sitting in the input and Enter never registered → **read the pane, then send ONLY `enter`** — and a lane still idle afterwards means nothing landed: re-read, diagnose, never re-send the text.
 
 ## Delegation
 
