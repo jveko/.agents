@@ -15,7 +15,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created by your worktree workflow at execution time.
 
-**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
+**Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
 ## Workflow Order (CRITICAL)
@@ -23,7 +23,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 **You MUST follow this exact sequence:**
 
 1. **Research** - Gather codebase context, read existing patterns
-2. **Write the plan** - Draft the full implementation plan, self-review it, and save it to `docs/plans/`
+2. **Write the plan** - Draft the full implementation plan, self-review it, and save it to `docs/superpowers/plans/`
 3. **Oracle review** - ONLY AFTER the plan is written, consult the oracle for review
 4. **Present findings** - Show oracle feedback to the user
 5. **Execution handoff** - Offer execution options
@@ -297,7 +297,7 @@ For a reusable reviewer prompt, see `plan-document-reviewer-prompt.md`.
 After the Oracle review findings have been presented, offer execution choice:
 
 ```markdown
-Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:
+Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, and use parallel execution for independent tasks
 

@@ -57,7 +57,6 @@ diff -rq "$UPSTREAM_DIR" "$SKILLS_DIR" | grep "Only in $UPSTREAM_DIR"
 ### 3. Merge SKILL.md Changes
 
 **Surgical merge (recommended):** Read the upstream diff. Apply only the improvements to your local `SKILL.md` by hand. Keep your local customizations:
-- `docs/plans/` paths (upstream uses `docs/superpowers/plans/`)
 - `dispatching-parallel-agents` references (upstream uses `superpowers:executing-plans`)
 - Oracle review workflow, plan document chunking
 
@@ -115,7 +114,7 @@ neutralized on 2026-09-28 — re-neutralize after overwriting those files.
 
 ## Local Customizations to Preserve
 
-- **writing-plans**: `docs/plans/` paths, `dispatching-parallel-agents` references, Oracle review workflow, plan document chunking, Workflow Order section, `## Remember` bullets, checkbox Self-Review before Oracle review, Inline Execution handoff (no executing-plans), Task Structure ending at Step 4 (no Commit step), local `plan-document-reviewer-prompt.md`
+- **writing-plans**: `dispatching-parallel-agents` references, Oracle review workflow, plan document chunking, Workflow Order section, `## Remember` bullets, checkbox Self-Review before Oracle review, Inline Execution handoff (no executing-plans), Task Structure ending at Step 4 (no Commit step), local `plan-document-reviewer-prompt.md`
 - **subagent-driven-development**: parallel-batch model (max 3, independence revalidation, dual-verdict gate where both verdicts must pass, controller-owned commits) layered on the upstream ledger/workspace rewrite; Integration section uses `dispatching-parallel-agents` not `superpowers:executing-plans`
 - **writing-skills**: Frontmatter `name`/`description` fields, Overview line naming `~/.claude/skills` and `~/.agents/skills/`, interpreter-invocation rule for bundled scripts
 
