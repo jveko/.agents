@@ -23,7 +23,9 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 | 3+4. Spawn + brief | `sbx-lane spawn <branch> <lane> --brief /tmp/<brief>.txt [--kind omp]` — uploads the brief to the sandbox's `/tmp`, creates workspace + pane, starts the agent, sends the pointer, confirms pickup by polling; a typed-but-unsubmitted pointer gets **Enter alone** |
 | 5. Supervise | `sbx-lane watch` (background; `--list` snapshot) replaces `scripts/watch-lanes` — local lanes AND every sandbox of the repo; rows `id pane status branch`. Read/answer: `sbx-lane herdr <branch> -- agent read <id> --source recent-unwrapped`, then `sbx-lane herdr <branch> -- pane send-text <pane> "<answer>"` + `… pane send-keys <pane> enter`; verify `blocked → working` |
 | 6. Land | `sbx-lane land <branch>` — only when the lane is `idle`/`done` (it rebases the lane's working tree). Never `wt merge` |
-| Teardown | `sbx-lane remove <branch>` — refused while anything is unlanded; deletes sandbox, alias, machine, records AND the local branch. No `herdr workspace close`, no `wt remove` |
+| Teardown | `sbx-lane remove <branch>` — refused while anything is unlanded; deletes sandbox, alias, machine, records AND the local branch. No `herdr workspace close`, no `wt remove`. `sbx-lane land <branch> --remove` lands and removes in one step |
+
+`sbx-lane list` shows every lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, and whether the local branch is on the target — check it after a batch so nothing is left running. `watch` and `list` never wake a parked sandbox.
 
 Review before landing: `sbx-lane fetch <branch>` fast-forwards the local lane branch, then `git log -p <target>..<branch>` — no checkout needed.
 
@@ -55,6 +57,7 @@ Land lanes **one at a time**: each land rebases onto a target that already holds
 | Waiting for `create` in the background | the lane isn't spawnable until it returns | run it in the foreground |
 | Spawning after `create` failed on `sandbox-boot` | the agent's config never arrived — an omp lane opens with "No models available" / "No model selected" | report the failed steps it listed; re-run `create` (re-boots) once the cause is fixed, then spawn |
 | Debugging networking when a lane says "No models available" | it's the boot (config pull), not the network | re-run `create`, then restart the lane's agent: exit it in its pane, `sbx-lane herdr <branch> -- agent start <lane> --kind omp --pane <pane>`, re-send the pointer |
+| Changing a ticket's state from memory (Done, In progress) | IDs from a shortlist get mixed up — a rejected ticket gets closed | re-read the ticket by its key right before the change, confirm its title matches the lane, then change it; re-read after to verify |
 | Leaving landed lanes around | a running sandbox bills until parked (TTL) or removed; an open herdr machine keeps it awake | `remove` after landing; `herdr machine disable <id>` for lanes you aren't watching |
 
 ## Brief adjustments
