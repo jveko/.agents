@@ -5,6 +5,10 @@
 #   bash scripts/watch-lanes --all    # include unnamed panes (other agents in the session)
 #   bash scripts/watch-lanes --list   # snapshot lanes + statuses once, then exit
 #   bash scripts/watch-lanes --all --list  # snapshot every lane, named or not
+#   bash scripts/watch-lanes --except <id> [--except <id>]...
+#                                     # skip lanes you're already handling: a done
+#                                     # lane stays done until torn down, and would
+#                                     # otherwise wake every re-armed watcher at once
 #
 # Triggers: blocked (approval/question dialog), idle, done — idle/done both
 # mean ready for input. working and unknown never fire (unknown covers
@@ -27,13 +31,16 @@ command -v herdr >/dev/null 2>&1 || die "herdr not found in PATH"
 INTERVAL="${WATCH_INTERVAL_S:-20}"
 [[ "$INTERVAL" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "WATCH_INTERVAL_S must be numeric, got: $INTERVAL"
 
-LIST=0 ALL=0
-for arg in "$@"; do
-  case "$arg" in
-    --all)  ALL=1 ;;
-    --list) LIST=1 ;;
-    *)      die "unknown argument: $arg" ;;
+LIST=0 ALL=0 EXCEPT='[]'
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --all)    ALL=1 ;;
+    --list)   LIST=1 ;;
+    --except) [[ $# -ge 2 ]] || die "--except needs a lane id"
+              EXCEPT=$(jq -c --arg id "$2" '. + [$id]' <<<"$EXCEPT"); shift ;;
+    *)        die "unknown argument: $1" ;;
   esac
+  shift
 done
 
 if [[ $ALL -eq 1 ]]; then
@@ -43,7 +50,8 @@ else
   SCOPE='select((.name // "") != "") | '
   LABEL='named lanes'
 fi
-TRIG='select(.agent_status=="blocked" or .agent_status=="idle" or .agent_status=="done")'
+# shellcheck disable=SC2016 # $id and $except are jq variables
+TRIG='select(.agent_status=="blocked" or .agent_status=="idle" or .agent_status=="done") | select((.name // .pane_id) as $id | $except | index($id) | not)'
 ROW='[(.name // .pane_id), .pane_id, .agent_status] | @tsv'
 
 if [[ $LIST -eq 1 ]]; then
@@ -61,7 +69,7 @@ while :; do
   if [[ $rc -ne 0 ]]; then
     echo "watch-lanes: herdr agent list failed (rc=$rc); retrying" >&2
   else
-    hit=$(printf '%s' "$json" | jq -r ".result.agents[] | ${SCOPE}${TRIG} | ${ROW}" 2>/dev/null)
+    hit=$(printf '%s' "$json" | jq -r --argjson except "$EXCEPT" ".result.agents[] | ${SCOPE}${TRIG} | ${ROW}" 2>/dev/null)
     if [[ -n "$hit" ]]; then
       printf '%s\n' "$hit"
       exit 0
