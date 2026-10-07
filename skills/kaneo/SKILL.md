@@ -79,7 +79,7 @@ Too big → parent + children (rule 3 below). A ticket that stays LIGHT is a clu
 3. **Dedupe** against open tickets: search the tracker for each item (key terms, cited files). Exact duplicate → drop, note the existing key. Overlapping → file it with a `related` link and narrow its Scope to what the existing ticket doesn't cover.
 4. **Size**: fold small items into the FULL ticket of their area (as Scope items) and split anything not landable in one lane into parent + children — see Size above.
 5. **Preview, then WAIT.** Show one table — #, title, priority, kind, track, scope files, relations, and dropped items with the reason (already fixed / duplicate of KEY) — and wait for the user's go. Telling and carrying on is not waiting.
-6. **Create** in order: parents first, then children, then relations (`subtask` parent → child, `blocks`, `related`). Status: the project's first column (To Do).
+6. **Create** in order: parents first, then children, then relations (`subtask` parent → child, `blocks`, `related`). Status: the project's first column (To Do). When the board runs in waves (wave parent tickets with ordered subtasks), the preview proposes the wave each new ticket joins; after the go, link it as that wave's subtask — a wave's written queue and policy change only on the user's word.
 7. **Verify**: re-read every created ticket by key; report the table of created keys and relations.
 
 ## Working a ticket
