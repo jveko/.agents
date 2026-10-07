@@ -1,6 +1,6 @@
 ---
 name: herdr-worktrunk
-description: Use when orchestrating git-worktree coding lanes in Herdr: opening a nested worktree workspace, spawning an omp/codex/claude lane, delivering a mission brief, answering a blocked lane (question or approval dialog), landing with wt merge, resolving a lane rebase conflict, tearing down lane workspaces, and when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
+description: Use when orchestrating git-worktree coding lanes in Herdr: opening a nested worktree workspace, spawning an omp/codex/claude lane, delivering a mission brief, answering a blocked lane (question or approval dialog), landing with wt merge, resolving a lane rebase conflict, tearing down lane workspaces, running a ticket backlog in waves (subagent triage, then batches of lanes), and when herdr agent start fails with invalid_agent_argument or agent_pane_not_found.
 ---
 
 # Herdr + Worktrunk
@@ -81,3 +81,28 @@ bash scripts/watch-lanes --except <id>  # skip a lane you're already landing
 The watcher polls every `WATCH_INTERVAL_S` (default 20s) across ALL workspaces and exits on the first **named** lane that is `blocked` (approval/question dialog), `idle`, or `done` (`idle`/`done` both mean ready for input); `working` and `unknown` never fire — `unknown` covers detached/sleeping agents. Named-only is the default so other panes in the session never wake the supervisor; pass `--all` to include unnamed panes, and `--list` / `--all --list` for a snapshot with a count. Output is one tab-separated line per triggering lane: `id`, `pane_id`, `status` — `id` is the lane's name, or its pane id for unnamed lanes under `--all`; either form works as the target of any `herdr agent` command. No lane ids go in: the script discovers every lane in the session itself. `--except <id>` (repeatable) skips lanes you are already handling — a lane stays `done` until you tear it down, so without it every re-armed watcher fires at once on the lane you're landing.
 
 Run it as a backgrounded job; on wake: `herdr agent read <printed id>` the question, answer it as in step 5 (SELECT dialog → `pane send-keys <pane_id> enter` alone on the highlighted option; free-text → `pane send-text` + `enter`; `agent prompt` only works on a lane in a normal idle/done turn), then **verify `agent get` flipped `blocked → working`** before re-arming (restart the watcher). A still-blocked lane means the answer did not land — re-read, diagnose the dialog type, never re-send blindly. `blocked` means the lane raised a question or approval dialog — that is the supervision channel.
+
+## Ticket lifecycle
+
+When a lane works a tracker ticket (Kaneo: To Do → In Progress → In Review → Done). Commits carry no ticket IDs, so **the ticket is where its commits are recorded**. Before every state change, re-read the ticket by key and confirm its title matches the lane; re-read after to verify.
+
+| When | Ticket |
+|---|---|
+| Lane spawned | move to **In Progress**; comment `lane <name>, branch <branch>, track <LIGHT\|FULL>, started` — also the lock that keeps another supervisor off it |
+| Lane landed | comment the landed commits (`<sha> <subject>` per line), the check result, and the lane report's summary and deviations; then move to **In Review** |
+| Lane parked or dropped | comment why (question pending, superseded, refused) and move back to **To Do** |
+| Done | never yours — the user moves it after reviewing and pushing |
+
+Problems a lane notices outside its scope go in its report, never in its commits: collect them for the user (and, in a wave run, in the ledger) to become tickets through the writing-tickets skill, linked `related` to the ticket that found them.
+
+## Backlog waves
+
+For a long run over a ticket backlog instead of one batch: **understand every ticket first, then run them in waves**. The user approves the wave plan once; after that the waves run without asking, stopping only for a real question (a lane's escalation, scope wider than a ticket's evidence, removing public API).
+
+1. **Ledger first.** The run's state lives in `$(git rev-parse --git-common-dir)/lane-waves.md` — per repository, never committed, and it survives restarts and context compaction. If it exists, resume from it instead of triaging again; update it after every state change (planned → running `<lane>`/`<branch>` → landed `<commits>` → in review; or skipped with the reason), and keep a **found during run** list: out-of-scope problems the lanes reported, each with the ticket that found it and its evidence.
+2. **Triage wave (skill: dispatching-parallel-agents).** Split the open tickets by area (their tags, or the files they cite) and give each area to ONE read-only subagent. Each verifies every ticket against current target and returns one row per ticket: key · title · severity · state (present / already fixed / duplicate of `<key>` / unclear) · files it touches · track (LIGHT/FULL, by the brief-skeleton rule) · coupled with or depends on `<keys>` · note. Subagents read and report only — they change no file and no ticket.
+3. **Plan the waves.** Drop fixed, duplicate and unclear tickets into a "not planned" list with reasons (report them; never close them). An unclear ticket — no verifiable evidence, or a fix that lives in a source nobody can read — is a candidate for a rewrite with the writing-tickets skill, the user's call. Order the rest by severity (BLOCKER → HIGH → MEDIUM → LOW), then dependencies, then any remediation order an epic ticket states. Fill each wave with at most the requested lane count, no file shared between lanes in a wave. **Bundle small tickets**: tickets in one area that share files and are each too small to deserve a design (dead code, doc fixes, a missing test) become ONE FULL lane item — one design and plan covering all of them, each ticket an acceptance item — rather than a pipeline per ticket. At most 3 tickets per lane; the rest go to later waves. Stop at the requested number of waves.
+4. **Approval — once.** Show the plan (waves, each lane's tickets, tracks, files, the not-planned list) as a question and WAIT for the go. Telling the user and carrying on is not waiting.
+5. **Run each wave** exactly as a batch: briefs, create, spawn, supervise, land one at a time, remove — with every ticket following the Ticket lifecycle above (In Progress at spawn, commits commented and In Review at land). A wave is done when every lane is landed and removed, or parked with a recorded reason.
+6. **Between waves:** have one subagent re-verify the next wave's cited lines against the new target (landed waves move lines and can fix or break tickets), adjust the plan in the ledger, then start the wave. No re-approval unless a ticket's scope grew.
+7. **Finish:** a final table per wave (ticket, track, landed commits, status), the not-planned list, the found-during-run list (ready for the writing-tickets skill), and the lane list showing nothing left running.
