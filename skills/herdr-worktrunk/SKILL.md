@@ -82,9 +82,9 @@ The watcher polls every `WATCH_INTERVAL_S` (default 20s) across ALL workspaces a
 
 Run it as a backgrounded job; on wake: `herdr agent read <printed id>` the question, answer it as in step 5 (SELECT dialog → `pane send-keys <pane_id> enter` alone on the highlighted option; free-text → `pane send-text` + `enter`; `agent prompt` only works on a lane in a normal idle/done turn), then **verify `agent get` flipped `blocked → working`** before re-arming (restart the watcher). A still-blocked lane means the answer did not land — re-read, diagnose the dialog type, never re-send blindly. `blocked` means the lane raised a question or approval dialog — that is the supervision channel.
 
-## Tickets
+## Tickets (optional)
 
-When lanes work tracker tickets, the project's ticket skill (e.g. `kaneo`) owns the ticket: how it moves, what gets recorded on it, who closes it. For a lane, **started** is the spawn and **finished** is the land — give the ticket skill the lane name, branch, track, landed commits, check result and report summary at those moments. Problems a lane notices outside its scope go in its report, never in its commits; collect them for the user (in a wave run, in the ledger) to become tickets through the ticket skill.
+Lanes need no tracker. When the work comes from tickets, load the tracker's skill too — **`kaneo`** for Kaneo — and it owns the ticket: how it moves, what gets recorded on it, who closes it. For a lane, **started** is the spawn and **finished** is the land — give the ticket skill the lane name, branch, track, landed commits, check result and report summary at those moments. Problems a lane notices outside its scope go in its report, never in its commits; collect them for the user (in a wave run, in the ledger) to become tickets through the ticket skill.
 
 ## Backlog waves
 

@@ -7,7 +7,9 @@ description: Use for any Kaneo ticket work - turning gap-analysis findings, revi
 
 ## Overview
 
-Kaneo is the tracker; the board is To Do → In Progress → In Review → Done. This skill covers **writing tickets** and **working them**, whoever does the work — a herdr-worktrunk lane, a single agent session, or you by hand.
+Kaneo is the tracker; the board is To Do → In Progress → In Review → Done. This skill covers **writing tickets** and **working them**, whoever does the work — a single agent session, you by hand, or parallel lanes.
+
+**Optional: `herdr-worktrunk`.** To run tickets as parallel lanes (a batch, or a whole backlog in waves), load it alongside this skill: it supervises the lanes, this skill handles their tickets. Without it, a single session works a ticket exactly as described below.
 
 **A ticket is its worker's whole scope.** Whoever works it later gets the ticket and nothing else — no session, no report, no memory of the analysis that produced it. Everything needed to stay in scope must be IN the ticket, verified against the code at the time it was written.
 
