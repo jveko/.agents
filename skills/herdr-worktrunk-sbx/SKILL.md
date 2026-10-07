@@ -18,7 +18,7 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 | Vanilla step | Sandbox lane |
 |---|---|
 | 0. Gate | unchanged, plus: `.config/sbx.toml` exists at the repo root (else use vanilla) |
-| 1. Create + warm | `sbx-lane create <branch>` — branch ref + sandbox + clone + boot + herdr server + ssh alias + herdr machine `sbx:<branch>`, in the FOREGROUND (returns when ready, ~1 min). **Never** `wt switch --create` for a lane. Re-running it repairs a half-provisioned lane |
+| 1. Create + warm | `sbx-lane create <branch>` — branch ref + sandbox + clone + boot + herdr server + ssh alias + herdr machine labelled `<repo> · <branch>`, in the FOREGROUND (returns when ready, ~1 min). **Never** `wt switch --create` for a lane. Re-running it repairs a half-provisioned lane |
 | 2. Nested workspace | none — `spawn` creates the lane's workspace on the sandbox's herdr; it shows under the machine in the sidebar |
 | 3+4. Spawn + brief | `sbx-lane spawn <branch> <lane> --brief /tmp/<brief>.txt [--kind omp]` — uploads the brief to the sandbox's `/tmp`, creates workspace + pane, starts the agent, sends the pointer, confirms pickup by polling; a typed-but-unsubmitted pointer gets **Enter alone** |
 | 5. Supervise | `sbx-lane watch` (background; `--list` snapshot; `--except <lane\|branch>` for lanes you're landing) replaces `scripts/watch-lanes` — local lanes AND every sandbox of the repo; rows `id pane status branch`. Read/answer: `sbx-lane herdr <branch> -- agent read <id> --source recent-unwrapped`, then `sbx-lane herdr <branch> -- pane send-text <pane> "<answer>"` + `… pane send-keys <pane> enter`; verify `blocked → working` |
