@@ -27,7 +27,7 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 
 `sbx-lane list` shows every recorded lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, and whether the local branch is on the target — check it after a batch so nothing is left running; `sbx-lane gc` also finds sandboxes no lane records. `watch`, `list` and lane tabs never wake a parked sandbox.
 
-Lane tabs missing (closed by hand, or herdr restarted without the worktrunk-sbx herdr plugin linked): `sbx-lane mirror --all` reopens every running lane's workspace and tabs, or `sbx-lane mirror <branch>` for one (that one wakes it).
+Lane tabs closed by hand: `sbx-lane mirror --all` reopens every running lane's workspace and tabs, or `sbx-lane mirror <branch>` for one (that one wakes it). Lane tabs that are bare shells after a herdr restart (the worktrunk-sbx herdr plugin not linked): `bun ~/workspace/projects/worktrunk-sbx/scripts/sbx-restore.ts` from a herdr pane restarts them — `mirror` never types into a tab that's still there.
 
 Review before landing: `sbx-lane fetch <branch>` fast-forwards the local lane branch, then `git log -p <target>..<branch>` — no checkout needed.
 
