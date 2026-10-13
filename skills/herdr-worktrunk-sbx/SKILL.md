@@ -25,7 +25,9 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 | 6. Land | `sbx-lane land <branch>` — only when the lane is `idle`/`done` (it rebases the lane's working tree). Never `wt merge` |
 | Teardown | `sbx-lane remove <branch>` — refused while anything is unlanded; deletes sandbox, alias, herdr workspace, anchor worktree, records AND the local branch. No `herdr workspace close`, no `wt remove`. `sbx-lane land <branch> --remove` lands and removes in one step |
 
-`sbx-lane list` shows every recorded lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, and whether the local branch is on the target — check it after a batch so nothing is left running; `sbx-lane gc` (then `gc --apply`) removes landed idle lanes, forgets sandboxes that are gone and finds sandboxes no lane records. `watch`, `list` and lane tabs never wake a parked sandbox.
+`sbx-lane list` shows every recorded lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, when its TTL park fires, and whether the local branch is on the target (`sandbox has more` when the last fetch holds commits the target lacks) — check it after a batch so nothing is left running; `sbx-lane gc` (then `gc --apply`) removes landed idle lanes, forgets sandboxes that are gone and finds sandboxes no lane records. `watch`, `list` and lane tabs never wake a parked sandbox; without credentials `watch` skips every sandbox (one stderr line per branch) and `list` refuses.
+
+A lane you aren't watching keeps billing until its TTL: `sbx-lane park <branch>` stops it now (returns at once; the next work command wakes it). One herdr session per project: from a plain terminal in the checkout, `sbx-lane session` opens the project's own session, so another project's lanes never show in it.
 
 Lane tabs closed by hand, or bare shells after a herdr restart without the worktrunk-sbx herdr plugin: `sbx-lane mirror` (from a herdr pane) reopens every running lane's workspace and tabs and restarts bare lane tabs. Parked lanes are only named; any work command (`spawn`, `herdr`, `fetch`) wakes one.
 
