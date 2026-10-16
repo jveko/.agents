@@ -9,7 +9,7 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 
 **Extends `herdr-worktrunk`; everything there applies unless this skill overrides it.** A repo whose root has `.config/sbx.toml` runs its lanes in Docker sandboxes through worktrunk-sbx: a lane is a **branch ref locally and a checkout only in its sandbox**. No local worktree is ever created — not by you, not by `wt`. `sbx-lane` owns the lane lifecycle (create, land, remove) the way `wt` does in vanilla.
 
-`sbx-lane` = `bun ~/workspace/projects/worktrunk-sbx/scripts/sbx-lane.ts`. Run it from the repo root. Usage and failure modes: worktrunk-sbx's `docs/OPERATIONS.md`.
+`sbx-lane` is the compiled binary installed at `~/.local/bin/sbx-lane`; install it once from `~/workspace/projects/worktrunk-sbx` with `bun install --frozen-lockfile` then `bun run install-bin`, `~/.local/bin` on `PATH` (the steps: worktrunk-sbx's `docs/SETUP.md`, §2). Run it from the repo root. Usage and failure modes: worktrunk-sbx's `docs/OPERATIONS.md`.
 
 **REQUIRED:** `herdr-worktrunk` (supervision loop, answering, recovery table, brief pattern) · `herdr` (env gate, ids-from-JSON).
 
