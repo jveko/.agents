@@ -27,11 +27,13 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 
 `sbx-lane list` shows every recorded lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, when its TTL park fires, and whether the local branch is on the target (`sandbox has more` when the last fetch holds commits the target lacks) — check it after a batch so nothing is left running; `sbx-lane gc` (then `gc --apply`) removes landed idle lanes, forgets sandboxes that are gone and finds sandboxes no lane records. `watch`, `list` and lane tabs never wake a parked sandbox; without credentials `watch` skips every sandbox (one stderr line per branch) and `list` refuses.
 
-A lane you aren't watching keeps billing until its TTL: `sbx-lane park <branch>` stops it now (returns at once; the next work command wakes it). One herdr session per project: from a plain terminal in the checkout, `sbx-lane session` opens the project's own session, so another project's lanes never show in it.
+A lane you aren't watching keeps billing until its TTL: `sbx-lane park <branch>` stops it now (returns at once; the next work command wakes it — one that finds the sandbox still stopping waits the stop out, up to 5 min by default (`WT_SBX_STOP_WAIT_MS`), then starts it; at that limit it exits 75: re-run it). One herdr session per project: from a plain terminal in the checkout, `sbx-lane session` opens the project's own session, so another project's lanes never show in it.
 
-Lane tabs closed by hand, or bare shells after a herdr restart without the worktrunk-sbx herdr plugin: `sbx-lane mirror` (from a herdr pane) reopens every running lane's workspace and tabs and restarts bare lane tabs. Parked lanes are only named; any work command (`spawn`, `herdr`, `fetch`) wakes one.
+Lane tabs closed by hand, or bare shells after a herdr restart without the worktrunk-sbx herdr plugin: `sbx-lane mirror` (from a herdr pane) reopens every running lane's workspace and tabs and restarts bare lane tabs. Parked lanes are only named; any work command (`spawn`, `herdr`, `fetch`, `review`) wakes one.
 
-Review before landing: `sbx-lane fetch <branch>` fast-forwards the local lane branch, then `git log -p <target>..<branch>` — no checkout needed.
+Review before landing: `sbx-lane review <branch>` fast-forwards the local lane branch and prints `git log -p <target>..<branch>` in one step (`--stat` for a summary, `--oneline` for commits only) — no checkout needed.
+
+Reading results in a script: every command has `--help`; `list`, `status`, `doctor` and `gc` take `--json` (one document on stdout), `watch --json` streams one JSON line per event. Exit codes: 0 ok · 1 failed · 2 usage · 3 precondition (credentials, `.config/sbx.toml` or a lane record missing — run `sbx-lane doctor`) · 4 refused (read the refusal: it needs a flag, a clean sandbox or a landed lane) · 75 transient (SDK deadline, lock busy, a still-stopping sandbox — re-run) · 130 interrupted. The `re-run:` and `next:` lines stay on stdout.
 
 ## Landing
 
