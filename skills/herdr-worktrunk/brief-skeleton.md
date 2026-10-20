@@ -31,9 +31,9 @@ L1. VERIFY: re-read every cited line against current source (lines drift) and gr
 L2. CHANGE. No test's expectation may change — the unchanged suite is the proof that behaviour didn't; say so. Needing to edit an assertion means the item is FULL: stop and ask.
 L3. Scoped gates, then commit. Commit subjects as in step 3.
 
-6. FINAL REPORT: commit list, verbatim gate/test output as evidence, plan-vs-actual deviations with reasons. Write it to `/tmp/<lane>-report.md` (outside the worktree) and reply with ONLY that path — a long report scrolls off the pane before the supervisor reads it. Do NOT merge, do NOT push — the supervisor lands the branch with `wt merge --no-squash --no-remove`.
+6. FINAL REPORT: commit list, verbatim gate/test output as evidence, plan-vs-actual deviations with reasons. Write it to `/tmp/<lane>-report.md` (outside the worktree) and reply with ONLY that path — a long report scrolls off the pane before the supervisor reads it. Do NOT merge, do NOT push — the supervisor lands the branch with `wt merge --no-squash --no-remove` (vanilla worktree lanes only; a sandbox lane is landed by the supervisor with `sbx-lane land <branch>`).
 
-ENV NOTES: post-start warm-up (deps install, artifact symlinks, dist stub) may still be finishing — if a build dependency is missing, wait ~30s and retry once before reporting a blocker. Root-requiring steps may be unavailable — attempt once and record the outcome honestly.
+ENV NOTES: post-start warm-up (deps install, artifact symlinks, dist stub) may still be finishing — vanilla worktree lanes only (`wt` post-start hooks; a sandbox lane has no such warm-up, its repo is provisioned by `create`) — if a build dependency is missing, wait ~30s and retry once before reporting a blocker. Root-requiring steps may be unavailable — attempt once and record the outcome honestly.
 
 ---
 
