@@ -17,8 +17,8 @@ description: Use with herdr-worktrunk when the repo root has .config/sbx.toml - 
 
 | Vanilla step | Sandbox lane |
 |---|---|
-| 0. Gate | unchanged, plus: `.config/sbx.toml` exists at the repo root (else use vanilla) |
-| 1. Create + warm | `sbx-lane create <branch>` — branch ref + sandbox + clone + boot + herdr server + ssh alias + a herdr workspace `<branch>` nested under the repo's (a `shell` tab into the sandbox), in the FOREGROUND (returns when ready, ~1 min). **Never** `wt switch --create` for a lane. Re-running it repairs a half-provisioned lane |
+| 0. Gate | unchanged, plus: `.config/sbx.toml` exists at the repo root (else use vanilla). Opting a repo in is the user's call: `sbx-lane init` drafts the file (never overwrites one). `sbx-lane doctor` triages credentials, the gateway, herdr and the installed binary |
+| 1. Create + warm | `sbx-lane create <branch>` — branch ref + sandbox + clone + boot + herdr server + ssh alias + a herdr workspace `<branch>` nested under the repo's (a `shell` tab into the sandbox), in the FOREGROUND (returns when ready, ~1 min). **Never** `wt switch --create` for a lane. Re-running it repairs a half-provisioned lane. Branch names use only `[A-Za-z0-9._/-]` (anything else is refused) |
 | 2. Nested workspace | none — `create` opened it. `spawn` adds one lane tab per agent: the agent's live state, also in the agent panel beside local agents; Enter in the tab opens the agent itself, `ctrl+b q` comes back. Tabs never wake a parked sandbox |
 | 3+4. Spawn + brief | `sbx-lane spawn <branch> <lane> --brief /tmp/<brief>.txt [--kind omp]` — uploads the brief to the sandbox's `/tmp`, creates workspace + pane, starts the agent, sends the pointer, confirms pickup by polling; a typed-but-unsubmitted pointer gets **Enter alone** |
 | 5. Supervise | `sbx-lane watch` (background; `--list` snapshot) replaces `scripts/watch-lanes` — this repo's local agents AND every sandbox of the repo, never another project's; rows `id pane status branch`. It remembers each fire by lane and turn: re-arm with no flags — a handled lane stays quiet, a lane you prompt again fires when it finishes that turn or asks something new. Read: `sbx-lane herdr <branch> -- agent read <id> --source recent-unwrapped`. Next instruction to an idle/done lane: `sbx-lane prompt <branch> <lane> "<text>"` (or `--brief <file>`) — it returns once herdr sees the new turn, so re-arm `watch` only after it; never type a follow-up with `pane send-text`. Answer a question (`blocked`): `sbx-lane herdr <branch> -- pane send-text <pane> "<answer>"` + `… pane send-keys <pane> enter`; verify `blocked → working` |
@@ -42,15 +42,22 @@ Reading results in a script: every command has `--help`; `list`, `status`, `doct
 | Refusal | Do |
 |---|---|
 | `the sandbox has work outside the lane's commits` | prompt the lane to commit (or clean up) its work; land again |
-| `conflicts with <target>` | the rebase was aborted, nothing moved. Prompt the lane: "run `git rebase refs/sbx-land/<target>`, resolve the conflicts preserving both intents, `GIT_EDITOR=true git rebase --continue`, rerun your gates, report" → land again |
+| `conflicts with <target>` | the rebase was aborted, nothing moved. Prompt the lane with the exact `git rebase <ref>` command the refusal printed (the ref carries a hash suffix — never type it from memory): "run `<that command>`, resolve the conflicts preserving both intents, `GIT_EDITOR=true git rebase --continue`, rerun your gates, report" → land again |
 | `check failed` | the lane stays rebased; prompt it with the failing output to fix + commit; land again |
+| `check timed out` | the check outran 30 min (`WT_SBX_CHECK_TIMEOUT_MS` raises it); the lane stays rebased — land again, or raise the budget for a slow check |
+| `<b> is working` / `<b> is blocked` | wait for `idle`/`done`, then land |
+| `… moved during the land` / `gained a commit during the check` / `… during the land` | nothing landed — land again |
+| `local <b> has commits the lane lacks` | work exists only on the local branch — bring it into the lane or drop it deliberately (the user's call), then land |
+| `the sandbox has no <b> branch` | the sandbox repo lost the lane branch — re-run `sbx-lane create <b>` to re-seed it |
 | `<target> … can't fast-forward` | the target's own worktree has changes in the way, or the target moved — sort the target out, land again |
+
+Every refusal and its remedy: worktrunk-sbx's `docs/OPERATIONS.md` (failure tables).
 
 Land lanes **one at a time**: each land rebases onto a target that already holds the previous lands, and `check` runs on that combined tree — with a full-gate `check` (e.g. `hk check --all`) the vanilla "full gate on final main after the batch" is covered by the last land's check.
 
 ## Removal
 
-`sbx-lane remove <branch>` after the land. A refusal lists exactly what would be lost (lane commits not on the target, loose work in the sandbox); land it or resolve it. `--force` discards what was listed — that is the user's decision, never yours.
+`sbx-lane remove <branch>` after the land. A refusal lists exactly what would be lost (lane commits not on the target, loose work in the sandbox); land it or resolve it. It also refuses while the lane agent is `working`/`blocked` — wait for `idle`/`done`. `--force` discards what was listed — that is the user's decision, never yours.
 
 ## Common mistakes
 
