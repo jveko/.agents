@@ -24,7 +24,7 @@ You are the **supervisor** over many lane agents: each lane is a **lane orchestr
 | Step | Command |
 |---|---|
 | 0. Gate | `test "${HERDR_ENV:-}" = 1` before ANY herdr control call |
-| 0b. Project extension | Repo root has `.config/sbx.toml` → lanes live in sandboxes: load the `herdr-worktrunk-sbx` skill — it overrides steps 1–6 (create, workspace, spawn, brief, supervise with `sbx-lane watch`, land) and the teardown lines; `Landing above` (`wt merge --no-squash --no-remove`) does not apply to a sandbox lane |
+| 0b. Project extension | Repo root has `.config/sbx.toml` → lanes live in sandboxes: stop here and load the `sbx-lanes` skill instead — it covers the whole sandbox lane lifecycle; nothing below (`wt`, `herdr worktree`, `scripts/watch-lanes`, `wt merge`) applies to a sandbox lane |
 | 0c. Name | branch `<type>/<topic>` (type: fix, feat, refactor, docs, test, chore; topic: 2–4 kebab words naming the change, e.g. `fix/quota-classifier`); lane (agent) name = `<topic>`, ≤ 32 chars. Never a ticket key, wave number or lane number — herdr's sidebar and machine list show these names, and the ticket comment already links branch to ticket |
 | 1. Create + warm | `wt switch --create <branch> --no-cd` — post-start hooks (copy-ignored, npm ci, artifact symlinks, dist stub) run in background; `--no-cd` keeps your pane's cwd put |
 | 2. Nested workspace | `herdr worktree open --cwd <repo-root> --branch <branch> --label <branch> --no-focus` → JSON with real ids (`wX:p1`). Prefer `--cwd`+`--branch`: `--path` requires the canonical path — herdr resolves `/tmp` → `/private/tmp`, anything else fails `worktree_not_found` |
