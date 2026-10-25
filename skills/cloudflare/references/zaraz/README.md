@@ -108,4 +108,4 @@ What do you need?
 
 ---
 
-This skill focuses exclusively on Zaraz. For Workers development, see `cloudflare-workers` skill.
+This skill focuses exclusively on Zaraz. For Workers development, see `workers-best-practices` skill.
