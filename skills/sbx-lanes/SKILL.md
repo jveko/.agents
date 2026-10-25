@@ -23,19 +23,19 @@ You are the **supervisor**: each lane runs one agent on its own brief in its san
 |---|---|
 | 0. Gate | `test "${HERDR_ENV:-}" = 1` before any herdr control call, and `.config/sbx.toml` at the repo root. Opting a repo in is the user's call: `sbx-lane init` drafts the file (never overwrites one). `sbx-lane doctor` triages credentials, the gateway, herdr, the installed binary and the lane records |
 | 0b. Name | branch `<type>/<topic>` (fix, feat, refactor, docs, test, chore; 2–4 kebab words naming the change); lane (agent) name = `<topic>`, `[a-z][a-z0-9_-]{0,31}`, unique. Never a ticket key, wave or lane number. Branch names use only `[A-Za-z0-9._/-]` (anything else is refused) |
-| 1. Create | `sbx-lane create <branch>` in the FOREGROUND (~1 min): branch ref + sandbox + clone + boot + herdr server + ssh alias + a herdr workspace `<branch>` nested under the repo's, with a `shell` tab into the sandbox. Re-running it repairs a half-provisioned lane |
+| 1. Create | `sbx-lane create <branch>` in the FOREGROUND (~1 min): branch ref + sandbox + clone + boot + herdr server + a herdr workspace `<branch>` nested under the repo's, with a `shell` tab into the sandbox. Re-running it repairs a half-provisioned lane |
 | 2. Spawn + brief | write the brief to a local file (structure: `brief-skeleton.md` in this directory), then `sbx-lane spawn <branch> <lane> --brief /tmp/<lane>.txt [--kind omp]` — uploads it to the sandbox's `/tmp` as `/tmp/<lane>+<brief>`, starts the agent, sends the pointer and confirms pickup; a typed-but-unsubmitted pointer gets Enter alone. Spawn adds a lane tab per agent: Enter in it opens the agent (`--takeover`), `ctrl+b q` comes back; tabs never wake a parked sandbox |
 | 3. Supervise | background `sbx-lane watch` (see Supervision loop) |
 | 4. Review | `sbx-lane review <branch>` fast-forwards the local lane branch and prints `git log -p <target>..<branch>` (`--stat`, `--oneline`) — no checkout needed |
 | 5. Land | `sbx-lane land <branch>` — only when the lane is `idle`/`done` (it rebases the lane's working tree). One land at a time |
-| 6. Remove | `sbx-lane remove <branch>` after the land, or `sbx-lane land <branch> --remove` in one step — deletes sandbox, alias, herdr workspace, anchor worktree, the lane record AND the local branch |
+| 6. Remove | `sbx-lane remove <branch>` after the land, or `sbx-lane land <branch> --remove` in one step — deletes sandbox, herdr workspace, anchor worktree, the lane record AND the local branch |
 | Between turns | `sbx-lane park <branch>` stops a lane you aren't watching now (returns at once); the next work command wakes it |
 
 Never `wt switch`, `wt merge`, `wt remove`, `herdr worktree open/create` or `herdr workspace close` for a sandbox lane: there is no local worktree, and those skip the sandbox's guards.
 
 ## Delegation
 
-`--kind omp` is the house default; use `claude`/`codex` when a task needs them (an unverified kind warns before any ssh). One lane per independent workstream — no two lanes may own the same files. The brief is the contract and the lane's report carries its state: you never work a lane's queue inline.
+`--kind omp` is the house default; use `claude`/`codex` when a task needs them (an unverified kind warns before anything is started). One lane per independent workstream — no two lanes may own the same files. The brief is the contract and the lane's report carries its state: you never work a lane's queue inline.
 
 ## Supervision loop
 
@@ -61,7 +61,7 @@ Then **verify `blocked → working`** (`sbx-lane herdr <branch> -- agent get <id
 
 `sbx-lane list` shows every lane of the repo with its sandbox state (`running` bills, `stopped` is parked), age, when its TTL park fires, and whether the local branch is on the target (`sandbox has more` when the last fetch holds commits the target lacks) — check it after a batch so nothing is left running. `sbx-lane status` is the same for every local repo from one account sweep. `sbx-lane gc` (then `gc --apply`) is the batch-end sweep: it closes lanes whose sandbox answers 404, reports landed, parked, ahead and other machines' lanes without touching them, lists sandboxes no lane records, and sweeps litter — it never deletes a sandbox or a branch, and never wakes one.
 
-These wake a parked lane: `create` (re-provisioning), `spawn`, `prompt`, `herdr`, `fetch`, `review`, `land`, `measure`, `remove`, and the `__ssh` shell. A work command that finds the sandbox still stopping waits the stop out, up to 5 min (`SBX_LANE_STOP_WAIT_MS`), then exits 75 — re-run it. `mirror`, `watch`, `list`, `status`, `gc` and lane tabs never wake one.
+These wake a parked lane: `create` (re-provisioning), `spawn`, `prompt`, `herdr`, `fetch`, `review`, `land`, `measure`, `remove`, and `shell`. A work command that finds the sandbox still stopping waits the stop out, up to 5 min (`SBX_LANE_STOP_WAIT_MS`), then exits 75 — re-run it. `mirror`, `watch`, `list`, `status`, `gc` and lane tabs never wake one.
 
 One herdr session per project: from a plain terminal in the checkout, `sbx-lane session` opens the project's own session, so another project's lanes never show in it. Lane tabs closed by hand, or bare shells after a herdr restart without the bundled herdr plugin: `sbx-lane mirror` (from a herdr pane) reopens every running lane's workspace and tabs; parked lanes are only named.
 
@@ -110,7 +110,7 @@ Land lanes **one at a time**: each land rebases onto a target that already holds
 
 Start from `brief-skeleton.md` in this directory. The lane's cwd is the sandbox repo (`~/workspace` there); the brief file stays local (`/tmp/<lane>.txt`) and `spawn` uploads it. Tell the lane its gates run in the sandbox (toolchain from the repo's `mise.toml` / image) and that it must **commit and never push** — landing is yours.
 
-Its report file is in the sandbox's `/tmp` as `/tmp/<lane>-report.md`. Read the agent's own output with `sbx-lane herdr <branch> -- agent read <id> --source recent-unwrapped`; for the report file, wake the lane with a work command first (`sbx-lane fetch <branch>`), then read it over ssh through the lane's alias — the `alias` in its record: `ssh -F ~/.config/worktrunk-sbx/ssh_config "$(jq -r --arg b <branch> 'select(.branch == $b).alias' "$(git rev-parse --git-common-dir)"/sbx-lane/state/*.json)" cat /tmp/<lane>-report.md`. A hand-run ssh does not run the wake that retires a ControlMaster, so reading a lane parked with a channel open can wait out the master's keepalives (measured 363 s).
+Its report file is in the sandbox's `/tmp` as `/tmp/<lane>-report.md`. Read the agent's own output with `sbx-lane herdr <branch> -- agent read <id> --source recent-unwrapped`; for the report file, run `sbx-lane shell <branch>` (it wakes a parked lane) and `cat /tmp/<lane>-report.md` in it.
 
 Scope each brief item to the ticket's cited evidence and stated fix, never "and any sibling …"; anything wider, or removing public API, is the user's call before spawning. For a behaviour change give the evidence and the gap, not the fix — the lane's own design step picks it.
 
