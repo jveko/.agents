@@ -5,15 +5,11 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh implementer subagents — batched in parallel
-where the plan's tasks are independent — with a task review (spec compliance +
-code quality) after each task, and a broad whole-branch review at the end.
+Execute plan by dispatching a fresh implementer subagent per task, a task review (spec compliance + code quality) after each, and a broad whole-branch review at the end.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
-**Core principle:** Independent tasks in batches of up to 3 → parallel
-dispatch → per-task task review (spec + quality) → broad final review = high
-quality, fast iteration
+**Core principle:** Fresh subagent per task + task review (spec + quality) + broad final review = high quality, fast iteration
 
 **Narration:** between tool calls, narrate at most one short line — the
 ledger and the tool results carry the record.
@@ -39,19 +35,18 @@ stop and ask.
 ```dot
 digraph when_to_use {
     "Have implementation plan?" [shape=diamond];
-    "Tasks independent enough to batch?" [shape=diamond];
+    "Tasks mostly independent?" [shape=diamond];
     "Partner chose inline, or no subagent tool?" [shape=diamond];
-    "subagent-driven-development\n(batched dispatch)" [shape=box style=filled fillcolor=lightblue];
-    "subagent-driven-development\n(one task at a time)" [shape=box];
+    "subagent-driven-development" [shape=box];
     "executing-plans" [shape=box];
     "Manual execution or brainstorm first" [shape=box];
 
-    "Have implementation plan?" -> "Tasks independent enough to batch?" [label="yes"];
+    "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
     "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
-    "Tasks independent enough to batch?" -> "Partner chose inline, or no subagent tool?" [label="yes"];
-    "Tasks independent enough to batch?" -> "subagent-driven-development\n(one task at a time)" [label="no - shared dependencies"];
+    "Tasks mostly independent?" -> "Partner chose inline, or no subagent tool?" [label="yes"];
+    "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
     "Partner chose inline, or no subagent tool?" -> "executing-plans" [label="yes"];
-    "Partner chose inline, or no subagent tool?" -> "subagent-driven-development\n(batched dispatch)" [label="no"];
+    "Partner chose inline, or no subagent tool?" -> "subagent-driven-development" [label="no"];
 }
 ```
 
@@ -67,58 +62,69 @@ digraph when_to_use {
 digraph process {
     rankdir=TB;
 
-    "Setup: worktree, ledger check, read plan, pre-flight review" [shape=box];
-    "Decompose remaining tasks into independent batches (max 3)" [shape=box style=filled fillcolor=lightyellow];
-
-    subgraph cluster_batch {
-        label="Per Batch";
-        style=filled;
-        fillcolor=lightcyan;
-        "Revalidate batch independence" [shape=box];
-        "[PARALLEL] Dispatch every implementer in the batch\n(dispatching-parallel-agents)" [shape=box];
-        "All implementers reported?" [shape=diamond];
-        "Controller commits each task's files (per implementer report)" [shape=box];
-        "[PARALLEL] Generate each task's review package, dispatch one task reviewer per task" [shape=box];
-        "Every task: spec ✅ AND quality approved?" [shape=diamond];
-        "Spec ❌ / open Critical/Important → blocks regardless of quality" [shape=box label="Failure: spec ❌ blocks"];
-        "Fix loop per failing task: rounds 1-3 resume implementer; 4-5 fresh + more capable; scoped re-review" [shape=box];
-        "Batch complete: all tasks in it complete" [shape=box];
+    subgraph cluster_per_task {
+        label="Per Task";
+        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
+        "Implementer asks questions?" [shape=diamond];
+        "Answer questions, provide context" [shape=box];
+        "Implementer implements, tests, commits, self-reviews" [shape=box];
+        "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)" [shape=box];
+        "Spec ✅ and quality approved?" [shape=diamond];
+        "Finding conflicts with plan text?" [shape=diamond];
+        "Rule on the conflict, ledger the ruling" [shape=box];
+        "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model" [shape=box];
+        "Dispatch scoped re-review (./re-review-prompt.md)" [shape=box];
+        "All findings addressed?" [shape=diamond];
+        "R = 5?" [shape=diamond];
+        "Adjudicate each open finding" [shape=box];
+        "Any load-bearing finding?" [shape=diamond];
+        "Rule and continue; stop only if every path forward is a guess" [shape=box];
+        "Park findings in ledger with rulings" [shape=box];
+        "Append completion to ledger, mark todo complete" [shape=box];
     }
 
-    "More batches remain?" [shape=diamond];
+    "Setup: worktree, ledger check, read plan, pre-flight review" [shape=box];
+    "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" [shape=box];
     "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals" [shape=box];
     "Final review clean: delete this plan's workspace" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Setup: worktree, ledger check, read plan, pre-flight review" -> "Decompose remaining tasks into independent batches (max 3)";
-    "Decompose remaining tasks into independent batches (max 3)" -> "Revalidate batch independence";
-    "Revalidate batch independence" -> "[PARALLEL] Dispatch every implementer in the batch\n(dispatching-parallel-agents)";
-    "[PARALLEL] Dispatch every implementer in the batch\n(dispatching-parallel-agents)" -> "All implementers reported?";
-    "All implementers reported?" -> "Controller commits each task's files (per implementer report)" [label="yes"];
-    "All implementers reported?" -> "[PARALLEL] Dispatch every implementer in the batch\n(dispatching-parallel-agents)" [label="no - still running"];
-    "Controller commits each task's files (per implementer report)" -> "[PARALLEL] Generate each task's review package, dispatch one task reviewer per task";
-    "[PARALLEL] Generate each task's review package, dispatch one task reviewer per task" -> "Every task: spec ✅ AND quality approved?";
-    "Every task: spec ✅ AND quality approved?" -> "Batch complete: all tasks in it complete" [label="yes"];
-    "Every task: spec ✅ AND quality approved?" -> "Spec ❌ / open Critical/Important → blocks regardless of quality" [label="no - some failing"];
-    "Spec ❌ / open Critical/Important → blocks regardless of quality" -> "Fix loop per failing task: rounds 1-3 resume implementer; 4-5 fresh + more capable; scoped re-review";
-    "Fix loop per failing task: rounds 1-3 resume implementer; 4-5 fresh + more capable; scoped re-review" -> "Batch complete: all tasks in it complete";
-    "Batch complete: all tasks in it complete" -> "More batches remain?";
-    "More batches remain?" -> "Revalidate batch independence" [label="yes - next batch"];
-    "More batches remain?" -> "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" [label="no"];
+    "Setup: worktree, ledger check, read plan, pre-flight review" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer asks questions?";
+    "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
+    "Answer questions, provide context" -> "Implementer implements, tests, commits, self-reviews";
+    "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
+    "Implementer implements, tests, commits, self-reviews" -> "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)";
+    "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)" -> "Spec ✅ and quality approved?";
+    "Spec ✅ and quality approved?" -> "Append completion to ledger, mark todo complete" [label="yes"];
+    "Spec ✅ and quality approved?" -> "Finding conflicts with plan text?" [label="no"];
+    "Finding conflicts with plan text?" -> "Rule on the conflict, ledger the ruling" [label="yes"];
+    "Rule on the conflict, ledger the ruling" -> "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model";
+    "Finding conflicts with plan text?" -> "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model" [label="no"];
+    "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model" -> "Dispatch scoped re-review (./re-review-prompt.md)";
+    "Dispatch scoped re-review (./re-review-prompt.md)" -> "All findings addressed?";
+    "All findings addressed?" -> "Append completion to ledger, mark todo complete" [label="yes"];
+    "All findings addressed?" -> "R = 5?" [label="no"];
+    "R = 5?" -> "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model" [label="no - next round"];
+    "R = 5?" -> "Adjudicate each open finding" [label="yes - breaker trips"];
+    "Adjudicate each open finding" -> "Any load-bearing finding?";
+    "Any load-bearing finding?" -> "Rule and continue; stop only if every path forward is a guess" [label="yes"];
+    "Any load-bearing finding?" -> "Park findings in ledger with rulings" [label="no"];
+    "Park findings in ledger with rulings" -> "Append completion to ledger, mark todo complete";
+    "Append completion to ledger, mark todo complete" -> "More tasks remain?";
+    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
+    "More tasks remain?" -> "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" [label="no"];
     "Dispatch final code reviewer (../requesting-code-review/code-reviewer.md)" -> "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals";
     "Final findings? ONE fix dispatch, one scoped re-review, adjudicate residuals" -> "Final review clean: delete this plan's workspace";
     "Final review clean: delete this plan's workspace" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
-Batches run sequentially; tasks inside a batch run in parallel. A batch is
-the unit of failure handling and of ledger bookkeeping.
-
 ## Setup
 
-Ensure the work happens in an isolated workspace: create a git worktree
-(or verify the existing one) with your worktree workflow before starting.
+Ensure the work happens in an isolated workspace: use
+superpowers:using-git-worktrees to create one or verify the existing one.
 Never start implementation on a main/master branch without your human
 partner's explicit consent.
 
@@ -136,11 +142,9 @@ a ledger file, not only in todos.
   line names your plan file, tasks with a `Task <N>: complete` line are DONE
   — do not re-dispatch them; resume at the first task without one. A task
   whose last line is a fix round is mid-loop: resume the loop at the next
-  round. Record the batch a task belongs to on its first ledger line, so a
-  resumed controller reconstructs the same batches. A ledger whose first line
-  names a different plan file — or a stray ledger at the old flat path
-  `.superpowers/sdd/progress.md` — is another plan's progress: leave it in
-  place and start your own, fresh.
+  round. A ledger whose first line names a different plan file — or a stray
+  ledger at the old flat path `.superpowers/sdd/progress.md` — is another
+  plan's progress: leave it in place and start your own, fresh.
 - Create the ledger with its identity as the first line:
   `# SDD ledger — plan: <plan file path>`.
 - The ledger is your recovery map: the commits it names exist in git even
@@ -155,8 +159,8 @@ authority the plan argues from, and conflicts inside the plan resolve
 against it. A plan with no reachable spec gets a ledger note saying so —
 rulings made without one are provisional.
 
-Before dispatching the first batch, scan the plan once for conflicts, writing
-down what you checked as you check it:
+Before dispatching Task 1, scan the plan once for conflicts, writing down
+what you checked as you check it:
 
 - tasks that contradict each other or the plan's Global Constraints
 - anything the plan explicitly mandates that the review rubric treats as a
@@ -169,19 +173,13 @@ its own text agrees with itself — the tests it specifies against the code it
 specifies, the files it creates against the files it later touches. "The scan
 is clean" without those rows is not a scan you ran.
 
-The same scan produces the batches: a pair of tasks that shares a file or an
-interface in the table can never share a batch. Record the batch
-decomposition in the ledger beside the table, one line per batch
-(`Batch A: Tasks 1, 2 — independent: src/api/ vs src/lib/`), then revalidate
-it before each batch starts.
-
 Write the table to the ledger. Rule on everything you find before execution
 begins — each finding against the plan text that mandates it — and record
 each ruling in the ledger. If the scan is clean, proceed without comment.
 Rule on each conflict it surfaces — the spec is the binding authority, the
-plan is its argument — record the ruling beside its row, and dispatch the
-first batch. The review loop remains the net for conflicts that only emerge
-from implementation.
+plan is its argument — record the ruling beside its row, and dispatch
+Task 1. The review loop remains the net for conflicts that only emerge from
+implementation.
 
 ## Model Selection
 
@@ -209,8 +207,8 @@ most expensive — which silently defeats this section.
 
 **Turn count beats token price.** Wall-clock and context cost scale with how
 many turns a subagent takes, and the cheapest models routinely take 2-3× the
-turns on multi-step work — costing more overall. Use a mid-tier model as
-the floor for reviewers and for implementers working from prose descriptions.
+turns on multi-step work — costing more overall. Use a mid-tier model as the
+floor for reviewers and for implementers working from prose descriptions.
 When the task's plan text contains the complete code to write, the
 implementation is transcription plus testing: use the cheapest tier for
 that implementer. Single-file mechanical fixes also take the cheapest tier.
@@ -219,127 +217,6 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 - Touches 1-2 files with a complete spec → cheap model
 - Touches multiple files with integration concerns → standard model
 - Requires design judgment or broad codebase understanding → most capable model
-
-## Batching and Parallel Dispatch
-
-Plan tasks are grouped into **independent batches**. Tasks within a batch run
-their implementation pipelines in parallel using
-`dispatching-parallel-agents`. Batches run sequentially — batch N+1 starts
-only after **every** task in batch N has completed its task review.
-
-A batch is the unit of parallelism, failure handling, and controller
-commits. Nothing crosses a batch boundary until the whole batch is clean.
-
-### Independence Rules
-
-Two tasks belong in the same batch only if ALL are true:
-
-| Check | Criterion |
-|---|---|
-| **File isolation** | No shared files across Create/Modify/Test paths |
-| **No dependency** | Task B doesn't depend on Task A's output (types, functions, data) |
-| **No import chain** | Task A's files are not imported by Task B's files (check plan's Architecture section) |
-| **Module boundary** | Different subdirectories / modules (e.g., `src/api/` vs `src/lib/`) |
-
-**If uncertain about independence, put tasks in separate batches.** Conservative
-batching is safer than parallel conflicts. Parallel dispatch is permitted
-*only* under these rules — never dispatch dependent tasks together.
-
-### Batch Size
-
-| Tasks in batch | When |
-|---|---|
-| 1 | Tasks share files or dependencies — sequential only |
-| 2-3 | Sweet spot. Most common for well-decomposed plans |
-| 4+ | **Forbidden.** Never dispatch more than 3 implementers at once |
-
-**Max batch size: 3.** Beyond 3, coordination overhead outweighs parallel
-speedup, and the controller loses track of which working-tree change belongs
-to which task.
-
-### Batch Execution
-
-```
-1. Decompose plan into batches (check plan's "Files:" sections for independence)
-2. For each batch (sequential):
-   a. Revalidate independence — earlier batches may have changed dependency shape
-   b. [PARALLEL] Dispatch ALL implementer subagents in the batch simultaneously
-   c. Each implementer reports exact file paths created/modified (for scoped
-      review AND for the controller's per-task commit)
-   d. [PARALLEL] For every task in the batch: generate its review package and
-      dispatch one task reviewer (spec + quality, single reviewer, both verdicts)
-   e. For each task, adjudicate its two verdicts (see Quality Review Gate)
-   f. Fix loops run per failing task; passing tasks are not re-reviewed
-   g. Controller commits each passing task's files, per that task's report
-   h. Once every task in the batch is complete → next batch
-3. Final code review across entire implementation
-4. Finish branch
-```
-
-### Quality Review Gate
-
-Each task gets **one** task-reviewer dispatch that issues **both** verdicts:
-spec compliance and code quality (see [task-reviewer-prompt.md](task-reviewer-prompt.md)).
-The two verdicts are not two seats and not two stages — one reviewer reads the
-task's diff once and returns both.
-
-**Both must pass before a task counts done or the batch advances.**
-
-**A spec verdict failure blocks regardless of the quality verdict.** A task
-with `Spec ✅` and `Task quality: Needs fixes` does not advance. A task with
-`Spec ❌` and `Task quality: Approved` does not advance either — clean code
-that is the wrong code is still not done. The fix loop covers both verdicts:
-Critical/Important quality findings and spec gaps enter it identically.
-
-Only after a task's spec verdict is ✅ and its quality verdict is Approved
-does the controller commit that task's files.
-
-### Revalidate Batches Between Batches
-
-Independence is checked at the start, but earlier implementations can change
-dependency shape (e.g., Task A exports a new type that Task B now imports).
-**Revalidate batch independence before starting each new batch.** If the
-dependency graph changed, restructure the remaining batches and ledger the
-new decomposition. Never carry a batch forward on the pre-flight scan alone.
-
-### Per-Task Review Boundaries
-
-Implementer subagents MUST report exact file paths created/modified. Each
-reviewer reviews only that task's diff — not the entire batch, not the entire
-branch. This prevents:
-- Reviewers evaluating code from other tasks in the same batch
-- False positives from unrelated changes
-- Blamed-at-the-wrong-task confusion during re-review loops
-
-### Batch Failure Handling
-
-- **Passing tasks** in a failed batch are NOT rolled back. Their code stays in
-  place and their reviews stand.
-- **Failing tasks** enter the fix loop individually: same implementer
-  subagent → fix → scoped re-review. Only the failing task is blocked.
-- **Fix loops are scoped per task.** The five-round breaker is per task, not
-  per batch.
-- **Invalidation:** If a failing task's fix touches files, imports, generated
-  outputs, tests, or public APIs used by a *passing* task in the same batch,
-  that passing task is invalidated and re-reviewed too. The independence
-  assumption may have been wrong.
-- **The ledger stays honest:** the batch is not complete while any of its
-  tasks has open Critical/Important findings or a spec gap. Passing tasks
-  wait for stragglers; they are never marked complete early.
-- **Commits happen per task, only on a clean verdict.** A task that is still
-  in its fix loop has nothing committed for it yet.
-
-### When NOT to Batch
-
-- Tasks that modify the same file (even different sections)
-- Tasks where Task B's implementation references types/functions from Task A
-- Tasks that cross module boundaries into the same shared utility (risk of
-  import conflicts)
-- Tasks that touch shared mutable infrastructure: `package.json`, lockfiles,
-  migrations, schemas, snapshots, barrel exports, route registries, test
-  fixtures, database seeds, or global test resources
-- Four or more tasks in one group — split them across batches
-- If you can't determine independence with 90% confidence — don't batch
 
 ## The Task Loop
 
@@ -366,11 +243,10 @@ any that finished without reporting. A bounded stretch keeps nearly
 all of a long wait's efficiency while guaranteeing a stuck or lost
 child is noticed within minutes, not at the end of the session.
 
-### 1. Dispatch the implementer(s)
+### 1. Dispatch the implementer
 
-Dispatch every implementer in the batch together, using
-`dispatching-parallel-agents`. Record BASE (`git rev-parse HEAD`) before the
-batch — the review packages and fix-round diffs need it.
+Record BASE (`git rev-parse HEAD`) before dispatching — the review package
+and fix-round diffs need it.
 
 - **Task brief:** before dispatching an implementer, run this skill's
   `bash scripts/task-brief PLAN_FILE N` — it extracts the task's full text to a
@@ -387,15 +263,7 @@ batch — the review packages and fix-round diffs need it.
 - **Report file:** name the implementer's report file after the brief
   (brief `…/task-N-brief.md` → report `…/task-N-report.md`) and put it in
   the dispatch prompt. The implementer writes the full report there and
-  returns only status, the exact file paths created/modified, a one-line
-  test summary, and concerns. **The controller needs those paths to commit
-  and scope the review** — a report without them cannot be turned into a
-  review package.
-- **State the file-isolation contract.** A batch-mate is editing the same
-  working tree right now. Tell the implementer: touch only the files your
-  brief names; do not run repo-wide formatters, dependency installs,
-  lockfile updates, or whole-suite migrations; leave every other task's
-  files alone even if you see them changing.
+  returns only status, commits, a one-line test summary, and concerns.
 - A dispatch prompt describes one task, not the session's history. Do not
   paste accumulated prior-task summaries ("state after Tasks 1-3") into
   later dispatches — a real session's dispatch hit 42k chars of which 99%
@@ -407,15 +275,11 @@ batch — the review packages and fix-round diffs need it.
   report. In real sessions, every reviewer a worker spawned duplicated
   the task review the controller dispatched anyway — a full extra
   review seat per task.
-- The dispatch carries the no-commit contract: implementers never commit.
-  The controller commits, per task, after that task's review is clean.
 - If an earlier task parked a finding in the area this task touches, carry
   a pointer to that ledger entry in the dispatch.
-- Record each implementer's agent identity from the dispatch result —
-  fix-loop rounds 1-3 resume that agent.
-- Dispatch multiple implementers in parallel only when they are in the same
-  validated batch. Never dispatch dependent tasks together, and never
-  dispatch more than 3 at once.
+- Record the implementer's agent identity from the dispatch result —
+  fix-loop rounds 1-3 resume this agent.
+- Never dispatch multiple implementation subagents in parallel (conflicts).
 
 Template: [implementer-prompt.md](implementer-prompt.md)
 
@@ -423,9 +287,7 @@ Template: [implementer-prompt.md](implementer-prompt.md)
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
-**DONE:** Take the exact file paths from the report and commit them yourself
-(`git add <those paths>` and commit — see *Controller-Owned Commits* below).
-Then generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before the batch — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+**DONE:** Generate the review package (`bash scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
@@ -439,44 +301,9 @@ Then generate the review package (`bash scripts/review-package PLAN_FILE BASE HE
 
 **Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
 
-A BLOCKED or NEEDS_CONTEXT task does not stop its batch-mates — those keep
-going and get reviewed. The batch simply cannot complete until the blocked
-task is resolved.
-
 If the implementer asks questions — before starting or mid-task — answer
 clearly and completely, provide additional context if needed, and don't
 rush it into implementation.
-
-### Controller-Owned Commits
-
-**Implementers never commit. You do.**
-
-For each task, after the implementer reports DONE and before you generate its
-review package, commit exactly the paths that implementer's report named:
-
-```
-git add <the exact file paths from the implementer's report>
-git commit -m "task <N>: <task name> (under review)"
-```
-
-Rules that make this safe inside a batch:
-
-- `git add` the **reported paths only**. A batch-mate's files are in the same
-  working tree and are not yours to stage. If a report's paths are
-  implausibly broad for its brief, narrow them or ask — never `git add -A`.
-- Never `git commit -a`, and never a repo-wide formatter or codemod as part
-  of a task commit: it would sweep in a batch-mate's in-flight work.
-- One commit per task, at the task's own scope. A fix round adds one more
-  commit on top, so `BASE..HEAD` for a task is exactly its own work.
-- The commit is what makes the diff reviewable — the review package reads a
-  commit range. That is why it happens before review, not after.
-- Fix rounds are committed the same way, from the resumed implementer's
-  report, so the scoped re-review has a range to read.
-
-Why the controller owns commits: in a batch, several implementers work one
-working tree. Commits are a serialization point, and the controller is the
-only party that knows which paths belong to which task. It also keeps a
-task's history readable: the controller is the one who can name the task.
 
 ### 3. Review the task
 
@@ -492,13 +319,9 @@ needed.
   and `git diff -U10` for the range, redirected to one uniquely named
   file). The output never enters your own context, and the reviewer sees
   the commit list, stat summary, and full diff with context in one Read
-  call. Use the BASE you recorded before the batch —
+  call. Use the BASE you recorded before dispatching the implementer —
   never `HEAD~1`, which silently truncates multi-commit tasks. Never
   dispatch a task reviewer without a diff file.
-- One task reviewer per task, dispatched in parallel across the batch. The
-  reviewer returns BOTH verdicts (spec compliance and code quality) in a
-  single report; you are not dispatching a spec reviewer and a quality
-  reviewer.
 - **Reviewer inputs:** the task reviewer gets three paths — the same brief
   file, the report file, and the review package — plus the global
   constraints that bind the task.
@@ -531,10 +354,7 @@ Template: [task-reviewer-prompt.md](task-reviewer-prompt.md)
 ### 4. The fix loop
 
 The loop triggers when the review reports spec ❌, any Critical or Important
-finding, or a ⚠️ item you confirmed as a real gap. **In a batch, the loop is
-per task** — a failing task's loop never re-reviews or re-dispatches its
-passing batch-mates (unless a fix invalidates them; see Batch Failure
-Handling).
+finding, or a ⚠️ item you confirmed as a real gap.
 
 Before the loop starts, two routes leave it immediately:
 
@@ -557,8 +377,6 @@ verbatim. Its context is intact: it knows the task, the code, and its own
 choices. If your harness cannot send another message to a live subagent,
 dispatch a fresh implementer carrying the brief path, the report-file path,
 and the findings — the report file is the persistent memory either way.
-A resumed implementer is one of several batch-mates: it edits only its own
-task's files.
 
 **Rounds 4-5 — dispatch a fresh implementer on a more capable model** (per
 Model Selection), with the brief path, the report-file path, the open
@@ -573,8 +391,7 @@ and returns the short contract. Before re-dispatching the reviewer, confirm
 the fix report contains the covering tests, the command run, and the
 output; dispatch the re-review once all three are present. Name the
 covering test files in the fix message — a one-line fix does not need the
-whole suite. Then commit the fixed paths (controller-owned commits, same as
-the first pass) so the re-review has a range.
+whole suite.
 
 **The re-review is scoped.** Run `bash scripts/review-package PLAN_FILE FIX_BASE HEAD`
 where FIX_BASE is the head the previous review saw, and dispatch
@@ -613,22 +430,17 @@ a silent discard is forbidden.
 
 ### 5. Complete the task
 
-A task completes when its review is clean — spec ✅ **and** task quality
-Approved, no open Critical/Important, every ⚠️ resolved, or every open
-finding parked with a ruling at the cap. **A spec failure blocks the task
-even when the quality verdict is Approved.** The task's work is already
-committed (Controller-Owned Commits); nothing extra to commit at
-completion. Append the completion line to the ledger in the same message as
-your other bookkeeping:
+When the review comes back clean — or every open finding is parked with a
+ruling at the cap — append the completion line to the ledger in the same
+message as your other bookkeeping:
 
 - `Task <N>: complete (commits <base7>..<head7>, review clean)`
 - `Task <N>: complete (commits <base7>..<head7>, <K> parked)` after a
   tripped breaker
 
-Then mark the todo complete. Never mark a task complete while its review has
-open Critical/Important issues or a spec gap that are neither fixed nor
-parked-with-ruling at the cap — and never advance the batch while any of its
-tasks is incomplete.
+Then mark the todo complete and move on. Never move to the next task while
+the review has open Critical/Important issues that are neither fixed nor
+parked-with-ruling at the cap.
 
 ## Final Review
 
@@ -679,9 +491,6 @@ Use superpowers:finishing-a-development-branch.
 | Excuse | Reality |
 |--------|---------|
 | "Close enough on spec compliance" | Reviewer found spec gaps = not done. Fix or hit the cap and adjudicate — those are the only exits. |
-| "The quality verdict is Approved, so the task is done" | Both verdicts are required. Approved code that misses the spec is the wrong code. |
-| "I'll dispatch them all at once, it's faster" | Only tasks in one validated batch, max 3. Beyond that you lose track of which working-tree change is whose. |
-| "These two tasks look independent" | Independence is revalidated before every batch, not assumed from the pre-flight scan. A batch-mate's new export can invalidate it. |
 | "I'll fix it myself, dispatching is overhead" | Controller fixes pollute your context and skip review. Resume the implementer. |
 | "One more round will converge" | Past the cap, rounds don't converge — the failure is structural. Adjudicate and route. |
 | "The reviewer will just find something new anyway" | Scoped re-reviews verify fixes; they cannot wander. New findings on untouched code go to the ledger, not the loop. |
@@ -689,7 +498,6 @@ Use superpowers:finishing-a-development-branch.
 | "The fix was small, skip the re-review" | Unreviewed fixes are how regressions land. Every round ends with a scoped re-review. |
 | "Reviews slow the loop down" | The loop without reviews is just unverified churn. Reviews are the loop's brakes and steering. |
 | "Ledger bookkeeping is overhead" | The ledger is what survives compaction. Controllers without one have re-dispatched entire completed task sequences. |
-| "The implementer committed its own work — tidier" | The controller is the only party that knows which paths belong to which task. Unowned commits sweep a batch-mate's in-flight work into history. |
 | "The implementer spawned its own reviewer — free extra assurance" | It's a duplicate seat reviewing the same diff; the task review is the gate. A worker-spawned reviewer is a defect to flag, not rigor. |
 
 ## Example Workflow
@@ -701,179 +509,60 @@ You: I'm using Subagent-Driven Development to execute this plan.
 [Read plan file once: docs/superpowers/plans/feature-plan.md]
 [Resolve workspace: bash scripts/sdd-workspace docs/superpowers/plans/feature-plan.md — no ledger inside, fresh start]
 [Create todos for all tasks]
-[Record BASE: git rev-parse HEAD]
 
---- BATCHING (from the pre-flight scan) ---
-Task 1 (src/api/users.ts) and Task 2 (src/lib/format.ts) touch different
-modules. Task 3 depends on Task 1's types. Tasks 4 and 5 share a file.
-Ledger:
-  Batch A: Tasks 1, 2 — independent: src/api/ vs src/lib/
-  Batch B: Task 3   — depends on Task 1 (sequential)
-  Batch C: Task 4   — Task 5 shares its file, so Task 5 gets its own batch
-  Batch D: Task 5
+Task 1: Hook installation script
 
---- BATCH A: Tasks 1 + 2 (parallel) ---
+[Run task-brief for Task 1; dispatch implementer with brief + report paths + context]
 
-[Revalidate independence for Batch A — unchanged]
-[Run task-brief for Tasks 1 and 2]
-[Dispatch both implementers simultaneously via dispatching-parallel-agents]
-  → Impl 1: "Implementing user CRUD..."
-  → Impl 2: "Implementing format utilities..."
+Implementer: "Before I begin - should the hook be installed at user or system level?"
 
-Implementer 1:
-  - Created src/api/users.ts with create/get/update/delete
-  - Files created/modified: src/api/users.ts, src/api/users.test.ts
-  - Tests passing, 12/12
-  - Self-review: all good
+You: "User level (~/.config/superpowers/hooks/)"
 
-Implementer 2:
-  - Created src/lib/format.ts with date/number/string formatters
-  - Files created/modified: src/lib/format.ts, src/lib/format.test.ts
-  - Tests passing, 8/8
-  - Self-review: good coverage
+Implementer: [Later]
+  - Implemented install-hook command
+  - Added tests, 5/5 passing
+  - Self-review: Found I missed --force flag, added it
+  - Committed
 
-[Controller commits, per implementer report — reported paths only]
-  git add src/api/users.ts src/api/users.test.ts && git commit -m "task 1: user CRUD (under review)"
-  git add src/lib/format.ts src/lib/format.test.ts && git commit -m "task 2: format utilities (under review)"
-
-[Run review-package PLAN BASE HEAD per task; dispatch one task reviewer per task, in parallel]
-  → Reviewer 1: Spec ✅ - all requirements met, nothing extra.
-      Strengths: Good test coverage, clean. Issues: None.
-      Task quality: Approved.
-  → Reviewer 2: Spec ❌:
-      - Missing: locale param for date formatting
-      Issues (Important): Magic number (0.5)
+[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path]
+Task reviewer: Spec ✅ - all requirements met, nothing extra.
+  Strengths: Good test coverage, clean. Issues: None. Task quality: Approved.
 
 [Ledger: Task 1: complete (commits a1b2c3d..d4e5f6a, review clean)]
-[Fix round 1 for Task 2: resume Implementer 2 with both findings]
-Implementer 2: Added locale param, extracted DEFAULT_LOCALE constant.
-  Files modified: src/lib/format.ts, src/lib/format.test.ts
-  Re-ran src/lib/format.test.js — 9/9 passing. Fix report appended.
 
-[Controller commits the fix paths; run review-package PLAN FIX_BASE HEAD; dispatch scoped re-review]
-Re-reviewer: Missing locale param — ADDRESSED (src/lib/format.ts:41).
-  Magic number — ADDRESSED (src/lib/format.ts:7). New breakage: none.
+Task 2: Recovery modes
+
+[Run task-brief for Task 2; dispatch implementer with brief + report paths + context]
+
+Implementer: [No questions]
+  - Added verify/repair modes
+  - 8/8 tests passing
+  - Committed
+
+[Run review-package PLAN_FILE BASE HEAD; dispatch task reviewer with the printed path]
+Task reviewer: Spec ❌:
+  - Missing: Progress reporting (spec says "report every 100 items")
+  Issues (Important): Magic number (100)
+
+[Fix round 1: resume the implementer with both findings]
+Implementer: Added progress reporting, extracted PROGRESS_INTERVAL constant.
+  Re-ran test/recovery.test.js — 10/10 passing. Fix report appended.
+
+[Run review-package PLAN_FILE FIX_BASE HEAD; dispatch scoped re-review]
+Re-reviewer: Missing progress reporting — ADDRESSED (src/recovery.js:41).
+  Magic number — ADDRESSED (src/recovery.js:7). New breakage: none.
   Verdict: all findings addressed.
 
 [Ledger: Task 2: fix round 1/5 (2 addressed, 0 open; commits d4e5f6a..b7c8d9e)]
 [Ledger: Task 2: complete (commits d4e5f6a..b7c8d9e, review clean)]
 
-[Batch A complete — both tasks reviewed, both committed]
+...
 
---- BATCH B: Task 3 (sequential — depends on Task 1's User type) ---
-
-[Revalidate independence for Batch B — Task 1 now exports User; Task 3
- imports it, so Task 3 stays alone in its batch]
-[Dispatch implementer]
-Implementer 3: "Task 3 builds on User from Task 1. Implementing..."
-[Implements; controller commits; task reviewer returns Spec ✅ and Approved]
-[Ledger: Task 3: complete (commits ..., review clean)]
-
---- BATCHES C and D: Tasks 4 and 5, one per batch ---
-
-[... sequential through remaining tasks ...]
-
---- ALL BATCHES DONE ---
-
-[Run review-package PLAN MERGE_BASE HEAD; dispatch final code-reviewer, most capable model]
+[After all tasks]
+[Run review-package PLAN_FILE MERGE_BASE HEAD; dispatch final code-reviewer, most capable model]
 Final reviewer: All requirements met. Deferred minors triaged: none block merge.
 
 [Delete this plan's workspace — the record now lives in git]
 
 Done! Using superpowers:finishing-a-development-branch.
 ```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe under the independence rules (batch-mates never share files)
-- Subagent can ask questions (before AND during work)
-
-**vs. Executing Plans:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
-- **Parallel batching** for independent tasks
-
-**Efficiency gains:**
-- No file reading overhead (briefs and review packages are files)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Dual-verdict task review: spec compliance AND code quality, both required
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-
-**Cost:**
-- One implementer + one task reviewer per task
-- Controller does more prep work (extracting briefs, decomposing batches)
-- Review loops add iterations
-- But catches issues early (cheaper than debugging later)
-
-## Red Flags
-
-**Never:**
-- Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality — both are required)
-- Proceed with unfixed issues
-- Dispatch more than 3 implementers at once — split the group into batches
-- Dispatch dependent, file-sharing, or import-linked tasks in the same batch
-- Dispatch a batch without the independence table behind it
-- Let implementer subagents commit (the controller commits, per task, after reviews pass)
-- Stage a task's commit with `git add -A`, `git commit -a`, or a repo-wide
-  formatter — a batch-mate's in-flight files are not yours to commit
-- Start the next batch while any task in the current batch is incomplete
-- Mix passing and failing batch results — all tasks must pass before the batch advances
-- Count a task as done on a clean quality verdict when its spec verdict failed
-- Skip revalidating batch independence after earlier batches complete (dependency shape may shift)
-- Make subagent read plan file (hand it its extracted brief instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
-- Ignore subagent questions (answer before letting them proceed)
-- Accept "close enough" on spec compliance (reviewer found issues = not done)
-- Skip review loops (reviewer found issues = implementer fixes = review again)
-- Let implementer self-review replace actual review (both are needed)
-- Fix findings yourself in the controller session
-
-**If subagent asks questions:**
-- Answer clearly and completely
-- Provide additional context if needed
-- Don't rush them into implementation
-
-**If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Controller commits the fix paths
-- Re-reviewer reviews again
-- Repeat until approved
-- Don't skip the re-review
-
-**If a task in a batch fails:**
-- Fix only the failing tasks, with the same subagent
-- Re-review only the affected tasks
-- Re-review passing tasks only if a fix touched what they use
-- Don't roll back passing work
-- Don't try to fix manually (context pollution)
-
-## Integration
-
-**Required workflow skills:**
-- **dispatching-parallel-agents** - REQUIRED: dispatch a batch's independent implementers in parallel
-- **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
-
-**Prompt templates:**
-- [implementer-prompt.md](implementer-prompt.md) - implementer dispatch (one per task in the batch)
-- [task-reviewer-prompt.md](task-reviewer-prompt.md) - one dispatch returning both verdicts (spec + quality)
-- [re-review-prompt.md](re-review-prompt.md) - scoped verification of a fix round
-
-**Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
-
-**Alternative workflow:**
-- **superpowers:executing-plans** - Use for a parallel session instead of same-session execution

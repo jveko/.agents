@@ -34,13 +34,10 @@ Subagent (general-purpose):
     Once you're clear on requirements:
     1. Implement exactly what the task specifies
     2. Write tests (following TDD if task says to)
-    3. Verify implementation works (run tests, manual check)
-    4. Self-review (see below)
-    5. Report back
-
-    **Do NOT commit.** The controller commits after all reviews pass. Leave
-    every change in the working tree and report the exact file paths you
-    created or modified — the controller stages only those paths.
+    3. Verify implementation works
+    4. Commit your work
+    5. Self-review (see below)
+    6. Report back
 
     Work from: [directory]
 
@@ -48,21 +45,7 @@ Subagent (general-purpose):
     It's always OK to pause and clarify. Don't guess or make assumptions.
 
     While iterating, run the focused test for what you're changing; run the
-    full suite once before reporting, not after every edit.
-
-    ## Other Tasks May Be Running Beside You
-
-    You may be sharing this working tree with implementers working on other
-    tasks at the same time. Your batch is only independent if you keep it
-    that way:
-    - Touch only the files your brief names. If a file you need is not in
-      your brief, ask — do not edit it on your own.
-    - Do not run repo-wide formatters, codemods, dependency installs,
-      lockfile updates, or snapshot/generator refreshes. They rewrite files
-      that belong to another task.
-    - If you see files you did not create changing, that is another
-      implementer working. Ignore them; do not revert, "fix", or stage
-      them.
+    full suite once before committing, not after every edit.
 
     ## You Do Not Dispatch Subagents
 
@@ -75,16 +58,6 @@ Subagent (general-purpose):
     the process. If you catch yourself thinking "an independent review
     would strengthen my report" — that review is already scheduled.
     Report instead.
-
-    ## You Do Not Commit
-
-    Never run `git commit`, `git add`, `git stash`, `git checkout -- <file>`,
-    or any other command that stages, reverts, or rewrites working-tree
-    state. The controller owns every commit: it stages exactly the paths
-    your report names. A commit from you can sweep another task's in-flight
-    work into history or make the controller's per-task review package
-    unreproducible. If you believe something must be committed for your work
-    to be reviewable, say so in your report — do not do it yourself.
 
     ## Code Organization
 
@@ -152,9 +125,6 @@ Subagent (general-purpose):
     you — your report is the test evidence. Then reply with the same short
     status contract as your first report.
 
-    In a fix round, list the files you touched in THIS round separately from
-    the originals, so the controller can commit only the fix.
-
     ## Report Format
 
     Write your full report to [REPORT_FILE]:
@@ -163,16 +133,14 @@ Subagent (general-purpose):
     - **TDD Evidence** (if TDD was required for this task):
       - RED: command run, relevant failing output before implementation, and why the failure was expected
       - GREEN: command run and relevant passing output after implementation
-    - **Files created/modified — exact paths, one per line** (the
-      controller stages exactly this list; a vague "src/" or a
-      "Files changed" summary is not usable)
+    - Files changed
     - Self-review findings (if any)
     - Any issues or concerns
 
     Then report back with ONLY (under 15 lines — the detail lives in the
     report file):
     - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
-    - Files created/modified (exact paths — same list as the report file)
+    - Commits created (short SHA + subject)
     - One-line test summary (e.g. "14/14 passing, output pristine")
     - Your concerns, if any
     - The report file path
